@@ -1,0 +1,86 @@
+# ========================
+# Build directories
+# ========================
+/build/
+/out/
+/bin/
+/lib/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# ========================
+# Compiled binaries
+# ========================
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
+*.exe
+*.out
+*.app
+
+# Static libraries
+*.a
+*.lib
+
+# ========================
+# IDE / Editor files
+# ========================
+
+# VS Code
+.vscode/
+
+# Visual Studio
+.vs/
+*.vcxproj*
+*.sln
+*.filters
+*.user
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+DerivedData/
+
+# CLion / JetBrains
+.idea/
+
+# ========================
+# OS-specific files
+# ========================
+
+# macOS
+.DS_Store
+
+# Linux
+*~
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# ========================
+# Logs & temp files
+# ========================
+*.log
+*.tmp
+*.cache
+
+# ========================
+# Assets (optional rule)
+# ========================
+# If you generate assets at runtime, ignore them:
+# /assets/generated/
+
+# ========================
+# Dependencies (optional)
+# ========================
+# If using external libs via submodules, DO NOT ignore them
+# If downloading libs locally, ignore:
+# /external/build/
