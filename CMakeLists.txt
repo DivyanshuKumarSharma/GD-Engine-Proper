@@ -6,7 +6,12 @@ project (GameDevelopmentProject)
 
 set(PROJECT_SOURCE_FILES
   source/main.cpp
+  source/game.cpp
+  source/game.h
 )
+
+include_directories(engine/thirdparty/glew/include)
+
 # Add the application
 include_directories(source)
 add_executable(${PROJECT_NAME} ${PROJECT_SOURCE_FILES})
@@ -14,6 +19,19 @@ add_executable(${PROJECT_NAME} ${PROJECT_SOURCE_FILES})
 # Add engine library
 add_compile_definitions(GLEW_NO_GLU)
 add_subdirectory(engine "${CMAKE_CURRENT_BINARY_DIR}/engine_build")
-target_link_libraries(${PROJECT_NAME} 
-    Engine
+include_directories(engine/source)
+target_include_directories(${PROJECT_NAME}
+
+    PRIVATE
+
+        source
+
+)
+
+target_link_libraries(${PROJECT_NAME}
+
+    PRIVATE
+
+        Engine
+
 )
