@@ -1,20 +1,29 @@
 #pragma once
+#include <memory>
 #include <string>
+#include <vector>
 #include <GL/glew.h>
-#include <memory>  
 
 namespace eng
 {
     class ShaderProgram;
+    class Material;
+    class Mesh;
+
     class GraphicsAPI
     {
     public:
-        GraphicsAPI() = default; // Default constructor
-        GraphicsAPI(const GraphicsAPI&) = delete; // Delete copy constructor
-        GraphicsAPI& operator=(const GraphicsAPI&) = delete; // Delete copy assignment operator
+        std::shared_ptr<ShaderProgram> CreateShaderProgram(const std::string& vertexSource, 
+            const std::string& fragmentSource);
+        GLuint CreateVertexBuffer(const std::vector<float>& vertices);
+        GLuint CreateIndexBuffer(const std::vector<uint32_t>& indices);
 
-        std::unique_ptr<ShaderProgram> CreateShaderProgram(const std::string& vertexSource, const std::string& fragmentSource);
+        void SetClearColor(float r, float g, float b, float a);
+        void ClearBuffers();
 
-        void bindShaderProgram(ShaderProgram& shaderProgram);
+        void BindShaderProgram(ShaderProgram* shaderProgram);
+        void BindMaterial(Material* material);
+        void BindMesh(Mesh* mesh);
+        void DrawMesh(Mesh* mesh);
     };
 }

@@ -1,24 +1,26 @@
 #pragma once
-#include <GL/glew.h>
 #include <string>
 #include <unordered_map>
+#include <GL/glew.h>
 
 namespace eng
 {
     class ShaderProgram
     {
     public:
-        ShaderProgram() = delete; // Delete default constructor
-        ShaderProgram(const ShaderProgram&) = delete; // Delete copy constructor
-        ShaderProgram& operator=(const ShaderProgram&) = delete; // Delete copy assignment operator
+        ShaderProgram() = delete;
+        ShaderProgram(const ShaderProgram&) = delete;
+        ShaderProgram& operator=(const ShaderProgram&) = delete;
         explicit ShaderProgram(GLuint shaderProgramID);
+        ~ShaderProgram();
+
         void Bind();
-        GLint getUniformLocation(const std::string& name);
-        void setUniform(const std::string& name, float value);
+        GLint GetUniformLocation(const std::string& name);
+        void SetUniform(const std::string& name, float value);
+        void SetUniform(const std::string& name, float v0, float v1);
 
     private:
-
-        GLuint m_shaderProgramID = 0;
         std::unordered_map<std::string, GLint> m_uniformLocationCache;
+        GLuint m_shaderProgramID = 0;
     };
 }

@@ -2,12 +2,12 @@
 
 namespace eng
 {
-    void Application::setNeedsToBeClosed(bool value)
+    void Application::SetNeedsToBeClosed(bool value)
     {
         m_needsToBeClosed = value;
     }
 
-    bool Application::needsToBeClosed() const
+    bool Application::NeedsToBeClosed() const
     {
         return m_needsToBeClosed;
     }

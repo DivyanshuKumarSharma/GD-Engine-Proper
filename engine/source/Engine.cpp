@@ -6,37 +6,38 @@
 
 namespace eng
 {
-    void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+    void keyCallback(GLFWwindow* window, int key, int, int action, int)
     {
-        auto& inputManager = Engine::getInstance().GetInputManager();
-
+        auto& inputManager = eng::Engine::GetInstance().GetInputManager();
         if (action == GLFW_PRESS)
         {
-            inputManager.setKeyPressed(key, true);
+            inputManager.SetKeyPressed(key, true);
         }
         else if (action == GLFW_RELEASE)
         {
-            inputManager.setKeyPressed(key, false);
+            inputManager.SetKeyPressed(key, false);
         }
     }
-    Engine& Engine::getInstance()
+
+    Engine& Engine::GetInstance()
     {
-        static Engine instance; // Guaranteed to be destroyed and instantiated on first use
+        static Engine instance;
         return instance;
     }
 
-    bool Engine::init(int width, int height)
+    bool Engine::Init(int width, int height)
     {
-        // Initialization code here
-        if(!m_application)
+        if (!m_application)
         {
-            // No application set, cannot initialize
             return false;
         }
 
-        if(glfwInit() != GLFW_TRUE)
+#if defined (__linux__)
+        glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
+#endif
+
+        if (!glfwInit())
         {
-            std::cerr << "Failed to initialize GLFW" << std::endl;
             return false;
         }
 
@@ -44,11 +45,11 @@ namespace eng
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-        m_window = glfwCreateWindow(width, height, "Game Window", nullptr, nullptr);
+        m_window = glfwCreateWindow(width, height, "GameDevelopmentProject", nullptr, nullptr);
 
-        if(m_window == nullptr)
+        if (m_window == nullptr)
         {
-            std::cerr << "Failed to create GLFW window" << std::endl;
+            std::cout << "Error creating window" << std::endl;
             glfwTerminate();
             return false;
         }
@@ -57,47 +58,46 @@ namespace eng
 
         glfwMakeContextCurrent(m_window);
 
-        if(glewInit() != GLEW_OK)
+        if (glewInit() != GLEW_OK)
         {
-            std::cerr << "Failed to initialize GLEW" << std::endl;
-            glfwDestroyWindow(m_window);
             glfwTerminate();
             return false;
         }
 
         return m_application->Init();
-
     }
 
-    void Engine::run()
+    void Engine::Run()
     {
-        // Main loop code here
-        if(!m_application)
+        if (!m_application)
         {
-            // No application set, cannot run
             return;
         }
 
         m_lastTimePoint = std::chrono::steady_clock::now();
-        while (!glfwWindowShouldClose(m_window) && !m_application->needsToBeClosed())
+
+        while (!glfwWindowShouldClose(m_window) && !m_application->NeedsToBeClosed())
         {
             glfwPollEvents();
 
-            auto now = std::chrono::high_resolution_clock::now();
+            auto now = std::chrono::steady_clock::now();
             float deltaTime = std::chrono::duration<float>(now - m_lastTimePoint).count();
             m_lastTimePoint = now;
 
             m_application->Update(deltaTime);
 
+            m_graphicsAPI.SetClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+            m_graphicsAPI.ClearBuffers();
+
+            m_rederQueue.Draw(m_graphicsAPI);
+
             glfwSwapBuffers(m_window);
         }
-        
     }
 
     void Engine::Destroy()
     {
-        // Cleanup code here
-        if(m_application)
+        if (m_application)
         {
             m_application->Destroy();
             m_application.reset();
@@ -106,7 +106,7 @@ namespace eng
         }
     }
 
-    void Engine::setApplication(Application* app)
+    void Engine::SetApplication(Application* app)
     {
         m_application.reset(app);
     }
@@ -126,5 +126,8 @@ namespace eng
         return m_graphicsAPI;
     }
 
-    
+    RenderQueue& Engine::GetRenderQueue()
+    {
+        return m_rederQueue;
+    }
 }

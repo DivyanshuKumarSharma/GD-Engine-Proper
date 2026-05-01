@@ -1,8 +1,9 @@
 #pragma once
+#include "input/InputManager.h"
+#include "graphics/GraphicsAPI.h"
+#include "render/RenderQueue.h"
 #include <memory>
 #include <chrono>
-#include "Input/InputManager.h"
-#include "Graphics/GraphicsAPI.h"
 
 struct GLFWwindow;
 namespace eng
@@ -11,25 +12,25 @@ namespace eng
     class Engine
     {
     public:
-
-        static Engine& getInstance();
+        static Engine& GetInstance();
 
     private:
-        Engine() = default; // Private constructor for singleton pattern
-        Engine(const Engine&) = delete; // Delete copy constructor
-        Engine(Engine&&) = delete; // Delete move constructor
-        Engine& operator=(const Engine&) = delete; // Delete copy assignment operator
-        Engine& operator=(Engine&&) = delete; // Delete move assignment operator
+        Engine() = default;
+        Engine(const Engine&) = delete;
+        Engine(Engine&&) = delete;
+        Engine& operator=(const Engine&) = delete;
+        Engine& operator=(Engine&&) = delete;
 
     public:
-        bool init(int width, int height);
-        void run();
+        bool Init(int width, int height);
+        void Run();
         void Destroy();
 
-        void setApplication(Application* app);
+        void SetApplication(Application* app);
         Application* GetApplication();
         InputManager& GetInputManager();
         GraphicsAPI& GetGraphicsAPI();
+        RenderQueue& GetRenderQueue();
 
     private:
         std::unique_ptr<Application> m_application;
@@ -37,6 +38,6 @@ namespace eng
         GLFWwindow* m_window = nullptr;
         InputManager m_inputManager;
         GraphicsAPI m_graphicsAPI;
+        RenderQueue m_rederQueue;
     };
-    
 }
