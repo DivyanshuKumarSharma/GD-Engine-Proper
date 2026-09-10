@@ -1,83 +1,107 @@
 # GD-Engine
 
-GD-Engine is an educational game engine built step by step throughout a structured series of lessons. The goal of this repository is to provide a clear, progressive learning path for those who want to deeply understand how game engines are built from scratch using modern C++ and core rendering/physics/input concepts.
+A game engine I'm building from scratch in modern C++, and **CourseMaker** — a
+visual shooting-course authoring tool built on top of it.
+
+The idea: a custom engine plus a no-code editor where you create, configure,
+save, share and play your own first-person shooting courses.
 
 ---
 
-## 📚 Lessons Structure
+## Two applications
 
-All detailed lesson sources are stored in the **`lessons/`**  directory.
-Each lesson introduces a new subsystem or feature.
-You can also browse through the **Git tags**, where every tag represents a specific lesson checkpoint — allowing you to view the engine exactly as it was at that step in development.
-Additionally, each commit contains the full engine state up to that point, including all lessons from the very beginning up to the commit you are currently inspecting.
+| | |
+|---|---|
+| **CourseMaker** | The editor. A dockable desktop tool — 3D viewport, scene hierarchy, inspector, asset browser, course/drill organizer — for building courses without writing code: place targets, configure movement and weapons, playtest, save, reopen. |
+| **Course player** (`GameDevelopmentProject`) | The standalone runtime that plays a course project through the same simulation code the editor authors. Ships with an example course (Target Practice → Speed Course → Final Test). |
 
----
-
-## 🎯 Purpose of the Engine
-
-This engine is not meant to compete with production engines like Unity or Unreal.  
-Instead, it serves as a **learning-focused codebase**, designed to reveal how:
-
-- Rendering pipelines are built from zero.
-- Physics and collision systems function internally.
-- Scene graphs, components, UI systems and scripting expand engine architecture.
-- Audio integrated
-- Real 2D and 3D gameplay logic is implemented.
-
-Every subsystem is introduced gradually with detailed breakdowns and simple C++ implementations.
+See [`docs/CREATOR_GUIDE.md`](docs/CREATOR_GUIDE.md) for a walkthrough and
+[`docs/SHOOTING_COURSE_MAKER.md`](docs/SHOOTING_COURSE_MAKER.md) for the full
+design, current status and roadmap.
 
 ---
 
-## 💻 Supported Platforms
+## The engine
 
-The engine is designed to be **cross-platform** and currently targets:
+Written from the ground up — no engine framework underneath.
 
-- ✅ **Windows**
-- ✅ **macOS**
-- ✅ **Linux**
-
----
-
-## 🛠️ Technologies & Standards
-
-| Technology        | Details                               |
-|------------------|---------------------------------------|
-| **Language**      | C++ (C++17 standard)                  |
-| **Build System**  | CMake                                 |
-| **Graphics**      | OpenGL                                |
-| **Window Management**      | GLFW                                |
+- **Rendering** — OpenGL 3.3 core, a render queue, custom shaders, an offscreen
+  render target the editor draws the scene into.
+- **Scene** — component-based game objects, JSON serialization, prefabs, stable
+  object ids.
+- **Physics** — Bullet: kinematic character controller, rigid bodies, raycasts,
+  trigger volumes.
+- **Audio** — miniaudio.
+- **Text / UI** — FreeType glyph atlas, an in-engine canvas/button system.
+- **Assets** — glTF/GLB model loading (cgltf), PNG/JPEG images (stb_image),
+  portable project folders that resolve every reference relative to the project.
+- **Editor layer** — Dear ImGui (docking) + ImGuizmo, compiled separately and
+  linked only into CourseMaker; the runtime has no dependency on it.
 
 ---
 
-## 📂 Project Structure
+## Tech stack
 
-| Folder             | Description |
-|------------------|------------|
-| `source/`         | Project source code |
-| `CMakeLists.txt`  | Project build configuration |
-| `engine/source/`  | Engine source code |
-| `engine/thirdparty/` | Engine third-party libraries |
-| `engine/CMakeLists.txt`  | Engine build configuration |
-| `lessons/`        | Lesson materials |
+| | |
+|---|---|
+| Language | C++17 |
+| Build | CMake (≥ 3.10) |
+| Graphics | OpenGL, GLFW, GLEW, GLM |
+| Physics | Bullet 3.25 |
+| Audio | miniaudio |
+| Text | FreeType |
+| Data | nlohmann/json |
+| Editor UI | Dear ImGui (docking) + ImGuizmo |
 
----
-
-## ⚙️ Build Instructions
-
-You can build the engine using one of two approaches:
-
-### 1. Generate Project via Script
-- `./gen_proj_vs2022.bat` for Visual Studio 2022
-- `./gen_proj_xcode.sh` for Xcode
-Then open the generated project from `build` folder in your preferred IDE.
-
-### 2. Open Repository with IDE in CMake Mode (Recommended)
-Simply open the repository root in **CLion / Visual Studio Code / Visual Studio (CMake mode)** and let it configure automatically.
+All third-party libraries are vendored under `engine/thirdparty/` — no package
+manager required. Full matrix in
+[`docs/FORMATS_AND_DEPENDENCIES.md`](docs/FORMATS_AND_DEPENDENCIES.md).
 
 ---
 
-## 🌱 Educational Focus
+## Build
 
-This repository evolves lesson by lesson.  
-You are encouraged to explore the tags chronologically and compare how the engine grows through each commit.  
-It’s a **transparent and developer-friendly journey** into engine architecture and low-level game development.
+```bash
+cmake -S . -B build
+cmake --build build --config Debug
+ctest --test-dir build -C Debug --output-on-failure
+```
+
+Then:
+
+```bash
+build/Debug/CourseMaker.exe                  # the editor (opens the example project)
+build/Debug/CourseMaker.exe path/to/project  # open a specific project folder
+build/Debug/GameDevelopmentProject.exe       # play the example course
+```
+
+On Windows, `gen_proj_vs2022.bat` generates a Visual Studio 2022 solution.
+Details and headless/CI flags in [`docs/BUILD.md`](docs/BUILD.md).
+
+**Platforms:** developed and verified on Windows 11. macOS / Linux code paths
+exist but are currently unverified.
+
+---
+
+## Repository layout
+
+| Path | |
+|---|---|
+| `engine/source/` | engine — rendering, scene, physics, audio, text, IO |
+| `engine/thirdparty/` | vendored dependencies |
+| `source/` | game runtime — course lifecycle, drills, objectives, targets, weapons, player, HUD |
+| `source/editor/` | CourseMaker — the editor application |
+| `source/project/` | project / course document model (shared by editor and runtime) |
+| `assets/` | the bundled example project |
+| `tests/` | test suites (`course_tests`, `editor_tests`) |
+| `docs/` | design, creator guide, build, format matrix |
+
+---
+
+## Status
+
+The engine is functional and the editor is a working prototype: the full
+create → build → place → configure → playtest → save → reopen loop runs, covered
+by an automated end-to-end test. Weapon switching, the asset import pipeline,
+moving-target playback modes, in-editor scored playtesting and Blender import are
+in progress — tracked in `docs/SHOOTING_COURSE_MAKER.md`.
