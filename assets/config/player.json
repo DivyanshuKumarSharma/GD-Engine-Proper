@@ -1,0 +1,40 @@
+{
+  "actions": {
+    "jump": "Jump",
+    "forward": "MoveForward",
+    "backward": "MoveBackward",
+    "left": "MoveLeft",
+    "right": "MoveRight"
+  },
+  "audio": {
+    "jump": "jump",
+    "footsteps": "step"
+  },
+  "weapon": {
+    "fireAction": "Fire",
+    "fireInterval": 0.15,
+    "animation": "shoot",
+    "audio": "shoot",
+    "weaponObject": "Gun",
+    "muzzleObject": "BOOM_35",
+    "hiddenObjects": [
+      "bullet_33",
+      "BOOM_35"
+    ],
+    "projectile": {
+      "material": "materials/suzanne.mat",
+      "radius": 0.2,
+      "sectors": 32,
+      "stacks": 32,
+      "mass": 10.0,
+      "friction": 0.1,
+      "impulse": 500.0,
+      "lifetime": 2.0,
+      "spawnOffset": {
+        "x": -0.2,
+        "y": 0.2,
+        "z": -1.75
+      }
+    }
+  }
+}

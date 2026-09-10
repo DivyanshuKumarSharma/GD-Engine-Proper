@@ -2,6 +2,7 @@
 # Build directories
 # ========================
 /build/
+/build-*/
 /out/
 /bin/
 /lib/
@@ -84,3 +85,12 @@ Desktop.ini
 # If using external libs via submodules, DO NOT ignore them
 # If downloading libs locally, ignore:
 # /external/build/
+
+# ========================
+# CourseMaker editor runtime files
+# ========================
+coursemaker_layout.ini
+highscores.json
+# Per-project editor state / autosaves (kept out of shared project folders)
+**/backups/
+**/.layout.ini

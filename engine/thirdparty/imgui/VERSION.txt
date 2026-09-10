@@ -1,0 +1,4 @@
+Dear ImGui: docking branch, version 1.92.1 WIP (IMGUI_VERSION "1.92.1")
+Fetched 2026-09-09 from https://github.com/ocornut/imgui (heads/docking)
+ImGuizmo: master, fetched 2026-09-09 from https://github.com/CedricGuillemet/ImGuizmo
+Licenses: LICENSE.txt (ImGui, MIT), LICENSE-ImGuizmo (MIT)

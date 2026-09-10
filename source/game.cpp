@@ -1,139 +1,151 @@
 #include "Game.h"
-#include "TestObject.h"
 
+#include "Bullet.h"
+#include "JumpPlatform.h"
+#include "Player.h"
+
+#include "course/CourseDirector.h"
+#include "hud/CrosshairComponent.h"
+#include "hud/HudPanelComponent.h"
+#include "selftest/SelfTest.h"
+#include "targets/KnockTargetComponent.h"
+#include "targets/MovingTargetComponent.h"
+#include "targets/ReachZoneComponent.h"
+#include "targets/TargetComponent.h"
+
+#include <exception>
+#include <iostream>
+#include <string>
+
+Game::Game() = default;
+Game::~Game() = default;
+
+void Game::RegisterTypes()
+{
+    Player::Register();
+    Bullet::Register();
+    JumpPlatform::Register();
+
+    game::TargetComponent::Register();
+    game::MovingTargetComponent::Register();
+    game::KnockTargetComponent::Register();
+    game::ReachZoneComponent::Register();
+    game::CrosshairComponent::Register();
+    game::HudPanelComponent::Register();
+}
 
 bool Game::Init()
 {
-    m_scene = new eng::Scene();
+    auto& engine = eng::Engine::GetInstance();
+    auto& input = engine.GetInputManager();
 
-    auto camera = m_scene->CreateObject("Camera");
-    camera->AddComponent(new eng::CameraComponent());
-    camera->SetPosition(glm::vec3(0.0f, 0.0f, 2.0f));
-    camera->AddComponent(new eng::PlayerControllerComponent());
-
-    m_scene->SetMainCamera(camera);
-
-    m_scene->CreateObject<TestObject>("TestObject");
-
-
-    std::string vertexShaderSource = R"(
-        #version 330 core
-        layout (location = 0) in vec3 position;
-        layout (location = 1) in vec3 color;
-
-        out vec3 vColor;
-
-        uniform mat4 uModel;
-        uniform mat4 uView;
-        uniform mat4 uProjection;
-
-        void main()
-        {
-            vColor = color;
-            gl_Position = uProjection * uView * uModel * vec4(position, 1.0);
-        }
-    )";
-
-    std::string fragmentShaderSource = R"(
-        #version 330 core
-        out vec4 FragColor;
-
-        in vec3 vColor;
-
-        void main()
-        {
-            FragColor = vec4(vColor, 1.0);
-        }
-    )";
-
-    auto& graphicsAPI = eng::Engine::GetInstance().GetGraphicsAPI();
-    auto shaderProgram = graphicsAPI.CreateShaderProgram(vertexShaderSource, fragmentShaderSource);
-
-    auto material = std::make_shared<eng::Material>();
-    material->SetShaderProgram(shaderProgram);
-
-    std::vector<float> vertices =
+    const std::string inputMap = engine.GetFileSystem().LoadAssetFileText("config/input.json");
+    std::string inputError;
+    if (inputMap.empty() || !input.LoadActionMap(inputMap, &inputError))
     {
-        0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
-        -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
-        -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
-        0.5f, -0.5f, 0.5f, 1.0f, 1.0f, 0.0f,
+        std::cerr << "Failed to load input configuration: "
+                  << (inputError.empty() ? "asset is empty or missing" : inputError)
+                  << std::endl;
+        return false;
+    }
 
-        0.5f, 0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
-        -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
-        -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 1.0f,
-        0.5f, -0.5f, -0.5f, 1.0f, 1.0f, 0.0f
-    };
-
-    std::vector<unsigned int> indices =
+    auto scene = eng::Scene::Load("scenes/scene.sc");
+    if (!scene)
     {
-        // front face
-        0, 1, 2,
-        0, 2, 3,
-        // top face
-        4, 5, 1,
-        4, 1, 0,
-        // right face
-        4, 0, 3,
-        4, 3, 7,
-        // left face
-        1, 5, 6,
-        1, 6, 2,
-        // bottom face
-        3, 2, 6,
-        3, 6, 7,
-        // back face
-        4, 7, 6,
-        4, 6, 5
-    };
+        std::cerr << "Failed to load the main scene." << std::endl;
+        return false;
+    }
 
-    eng::VertexLayout vertexLayout;
+    m_scene = scene;
+    engine.SetScene(m_scene);
 
-    // Postion
-    vertexLayout.elements.push_back({
-        0,
-        3,
-        GL_FLOAT,
-        0
-        });
-    // Color
-    vertexLayout.elements.push_back({
-        1,
-        3,
-        GL_FLOAT,
-        sizeof(float) * 3
-        });
-    vertexLayout.stride = sizeof(float) * 6;
+#ifndef NDEBUG
+    try
+    {
+        const std::string serializedScene = m_scene->Serialize().dump();
+        const auto roundTripDocument = nlohmann::json::parse(serializedScene);
+        if (!roundTripDocument.contains("objects") || !roundTripDocument["objects"].is_array())
+        {
+            std::cerr << "Scene serialization validation failed." << std::endl;
+            return false;
+        }
+    }
+    catch (const std::exception& exception)
+    {
+        std::cerr << "Scene serialization validation failed: " << exception.what() << std::endl;
+        return false;
+    }
+#endif
 
-    auto mesh = std::make_shared<eng::Mesh>(vertexLayout, vertices, indices);
+    eng::GameObject* playerObject = m_scene->FindObjectByName("MainPlayer");
+    if (!playerObject || std::string(playerObject->GetTypeName()) != "Player")
+    {
+        std::cerr << "Scene is missing a 'MainPlayer' Player object." << std::endl;
+        return false;
+    }
+    auto* player = static_cast<Player*>(playerObject);
 
-    auto objectA = m_scene->CreateObject("ObjectA");
-    objectA->AddComponent(new eng::MeshComponent(material, mesh));
-    objectA->SetPosition(glm::vec3(0.0f, 2.0f, 0.0f));
+    eng::CanvasComponent* menuCanvas = engine.GetUIInputSystem().GetCanvas();
+    if (!menuCanvas)
+    {
+        std::cerr << "Scene has no active canvas." << std::endl;
+        return false;
+    }
 
-    auto objectB = m_scene->CreateObject("ObjectB");
-    objectB->AddComponent(new eng::MeshComponent(material, mesh));
-    objectB->SetPosition(glm::vec3(0.0f, 2.0f, 2.0f));
-    objectB->SetRotation(glm::vec3(0.0f, 2.0f, 0.0f));
+    m_director = std::make_unique<game::CourseDirector>();
+    m_director->onQuitRequested = [this]() { SetNeedsToBeClosed(true); };
+    if (m_selfTest && m_screenshotDir.empty())
+    {
+        m_director->SetFastTransitions(true);
+    }
+    m_director->Init(m_scene.get(), player, menuCanvas);
 
-    auto objectC = m_scene->CreateObject("ObjectC");
-    objectC->AddComponent(new eng::MeshComponent(material, mesh));
-    objectC->SetPosition(glm::vec3(-2.0f, 0.0f, 0.0f));
-    objectC->SetRotation(glm::vec3(1.0f, 0.0f, 1.0f));
-    objectC->SetScale(glm::vec3(1.5f, 1.5f, 1.5f));
+    if (m_selfTest)
+    {
+        m_selfTestRunner = std::make_unique<game::SelfTest>(m_scene.get(), m_director.get(), player);
+        if (!m_screenshotDir.empty())
+        {
+            m_selfTestRunner->SetScreenshotDir(m_screenshotDir);
+        }
+    }
 
-    
-    eng::Engine::GetInstance().SetScene(m_scene);
-    
+    engine.GetGraphicsAPI().SetClearColor(
+        117.0f / 256.0f, 187.0f / 256.0f, 253.0f / 256.0f, 1.0f);
     return true;
 }
 
 void Game::Update(float deltaTime)
 {
+    if (!m_selfTest)
+    {
+        auto& input = eng::Engine::GetInstance().GetInputManager();
+        if (input.WasActionPressed("Pause"))
+        {
+            m_director->OnPausePressed();
+        }
+        if (input.WasActionPressed("Confirm"))
+        {
+            m_director->OnConfirmPressed();
+        }
+    }
+
+    // The director runs before the scene so anything it spawns, destroys or
+    // resets happens while the scene is not mid-iteration.
+    m_director->Update(deltaTime);
+
     m_scene->Update(deltaTime);
+
+    if (m_selfTestRunner && m_selfTestRunner->Update(deltaTime))
+    {
+        std::cout << (m_selfTestRunner->Passed() ? "SELF-TEST PASSED" : "SELF-TEST FAILED")
+                  << "  (" << m_selfTestRunner->Failures() << " failures / "
+                  << m_selfTestRunner->Checks() << " checks)" << std::endl;
+        SetNeedsToBeClosed(true);
+    }
 }
 
 void Game::Destroy()
 {
-
+    m_selfTestRunner.reset();
+    m_director.reset();
 }

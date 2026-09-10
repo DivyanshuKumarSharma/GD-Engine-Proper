@@ -1,0 +1,473 @@
+{
+  "allowedWeapons": [],
+  "id": "drill01",
+  "inheritMovement": true,
+  "intro": "Shoot the cubes off their stands, then tag the red plates.",
+  "music": "",
+  "name": "DRILL 01 - TARGET PRACTICE",
+  "objectives": [
+    {
+      "amount": 3,
+      "description": "Shoot Cubes",
+      "tag": "",
+      "targetKind": "cube",
+      "type": "shoot"
+    },
+    {
+      "amount": 2,
+      "description": "Shoot Red Targets",
+      "tag": "",
+      "targetKind": "red",
+      "type": "shoot"
+    },
+    {
+      "amount": 1,
+      "description": "Complete the Drill",
+      "tag": "",
+      "targetKind": "",
+      "type": "finish"
+    }
+  ],
+  "objects": [
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.95,
+                  "value1": 0.75,
+                  "value2": 0.1
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 10,
+            "y": 0.05,
+            "z": 0.4
+          },
+          "type": "MeshComponent"
+        }
+      ],
+      "name": "D1_FiringLine",
+      "position": {
+        "x": 0,
+        "y": 0.55,
+        "z": 9
+      }
+    },
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.35,
+                  "value1": 0.35,
+                  "value2": 0.4
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 1.2,
+            "y": 2.0,
+            "z": 1.2
+          },
+          "type": "MeshComponent"
+        },
+        {
+          "body": {
+            "friction": 0.6,
+            "mass": 0,
+            "type": "static"
+          },
+          "collider": {
+            "type": "box",
+            "x": 1.2,
+            "y": 2.0,
+            "z": 1.2
+          },
+          "type": "PhysicsComponent"
+        }
+      ],
+      "name": "D1_Pedestal_L",
+      "position": {
+        "x": -4,
+        "y": 1.5,
+        "z": 2
+      }
+    },
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.85,
+                  "value1": 0.85,
+                  "value2": 0.9
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 0.9,
+            "y": 0.9,
+            "z": 0.9
+          },
+          "type": "MeshComponent"
+        },
+        {
+          "body": {
+            "friction": 0.5,
+            "mass": 4,
+            "type": "dynamic"
+          },
+          "collider": {
+            "type": "box",
+            "x": 0.9,
+            "y": 0.9,
+            "z": 0.9
+          },
+          "type": "PhysicsComponent"
+        },
+        {
+          "despawnDelay": 2.5,
+          "hitImpulse": 16,
+          "kind": "cube",
+          "tag": "d1",
+          "type": "TargetComponent"
+        }
+      ],
+      "name": "D1_Cube_L",
+      "position": {
+        "x": -4,
+        "y": 3.05,
+        "z": 2
+      }
+    },
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.35,
+                  "value1": 0.35,
+                  "value2": 0.4
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 1.2,
+            "y": 2.0,
+            "z": 1.2
+          },
+          "type": "MeshComponent"
+        },
+        {
+          "body": {
+            "friction": 0.6,
+            "mass": 0,
+            "type": "static"
+          },
+          "collider": {
+            "type": "box",
+            "x": 1.2,
+            "y": 2.0,
+            "z": 1.2
+          },
+          "type": "PhysicsComponent"
+        }
+      ],
+      "name": "D1_Pedestal_C",
+      "position": {
+        "x": 0,
+        "y": 1.5,
+        "z": 1
+      }
+    },
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.85,
+                  "value1": 0.85,
+                  "value2": 0.9
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 0.9,
+            "y": 0.9,
+            "z": 0.9
+          },
+          "type": "MeshComponent"
+        },
+        {
+          "body": {
+            "friction": 0.5,
+            "mass": 4,
+            "type": "dynamic"
+          },
+          "collider": {
+            "type": "box",
+            "x": 0.9,
+            "y": 0.9,
+            "z": 0.9
+          },
+          "type": "PhysicsComponent"
+        },
+        {
+          "despawnDelay": 2.5,
+          "hitImpulse": 16,
+          "kind": "cube",
+          "tag": "d1",
+          "type": "TargetComponent"
+        }
+      ],
+      "name": "D1_Cube_C",
+      "position": {
+        "x": 0,
+        "y": 3.05,
+        "z": 1
+      }
+    },
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.35,
+                  "value1": 0.35,
+                  "value2": 0.4
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 1.2,
+            "y": 2.0,
+            "z": 1.2
+          },
+          "type": "MeshComponent"
+        },
+        {
+          "body": {
+            "friction": 0.6,
+            "mass": 0,
+            "type": "static"
+          },
+          "collider": {
+            "type": "box",
+            "x": 1.2,
+            "y": 2.0,
+            "z": 1.2
+          },
+          "type": "PhysicsComponent"
+        }
+      ],
+      "name": "D1_Pedestal_R",
+      "position": {
+        "x": 4,
+        "y": 1.5,
+        "z": 2
+      }
+    },
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.85,
+                  "value1": 0.85,
+                  "value2": 0.9
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 0.9,
+            "y": 0.9,
+            "z": 0.9
+          },
+          "type": "MeshComponent"
+        },
+        {
+          "body": {
+            "friction": 0.5,
+            "mass": 4,
+            "type": "dynamic"
+          },
+          "collider": {
+            "type": "box",
+            "x": 0.9,
+            "y": 0.9,
+            "z": 0.9
+          },
+          "type": "PhysicsComponent"
+        },
+        {
+          "despawnDelay": 2.5,
+          "hitImpulse": 16,
+          "kind": "cube",
+          "tag": "d1",
+          "type": "TargetComponent"
+        }
+      ],
+      "name": "D1_Cube_R",
+      "position": {
+        "x": 4,
+        "y": 3.05,
+        "z": 2
+      }
+    },
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.9,
+                  "value1": 0.1,
+                  "value2": 0.12
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 1.6,
+            "y": 1.6,
+            "z": 0.25
+          },
+          "type": "MeshComponent"
+        },
+        {
+          "body": {
+            "friction": 0.5,
+            "mass": 0,
+            "type": "static"
+          },
+          "collider": {
+            "type": "box",
+            "x": 1.6,
+            "y": 1.6,
+            "z": 0.25
+          },
+          "type": "PhysicsComponent"
+        },
+        {
+          "despawnDelay": 0.18,
+          "kind": "red",
+          "tag": "d1",
+          "type": "TargetComponent"
+        }
+      ],
+      "name": "D1_RedPlate_L",
+      "position": {
+        "x": -2.4,
+        "y": 3.4,
+        "z": -4
+      }
+    },
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.9,
+                  "value1": 0.1,
+                  "value2": 0.12
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 1.6,
+            "y": 1.6,
+            "z": 0.25
+          },
+          "type": "MeshComponent"
+        },
+        {
+          "body": {
+            "friction": 0.5,
+            "mass": 0,
+            "type": "static"
+          },
+          "collider": {
+            "type": "box",
+            "x": 1.6,
+            "y": 1.6,
+            "z": 0.25
+          },
+          "type": "PhysicsComponent"
+        },
+        {
+          "despawnDelay": 0.18,
+          "kind": "red",
+          "tag": "d1",
+          "type": "TargetComponent"
+        }
+      ],
+      "name": "D1_RedPlate_R",
+      "position": {
+        "x": 2.4,
+        "y": 3.4,
+        "z": -4
+      }
+    }
+  ],
+  "playerStart": {
+    "x": 0.0,
+    "y": 2.0,
+    "z": 10.0
+  },
+  "schemaVersion": 1,
+  "targetTime": 25.0
+}

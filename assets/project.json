@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "name": "Marksman Fundamentals",
+  "environment": "scenes/environment.sc",
+  "movementDefaults": {
+    "feelPreset": "responsive",
+    "moveSpeed": 8.0,
+    "jumpHeight": 1.1,
+    "groundAccel": 110.0,
+    "groundDecel": 90.0,
+    "friction": 7.0,
+    "airControl": 0.3,
+    "mouseSensitivity": 2.5
+  },
+  "audio": { "master": 1.0, "music": 0.7, "effects": 0.9 },
+  "weapons": [
+    { "id": "sidearm-9", "name": "Sidearm 9", "category": "pistol", "fireMode": "semi",
+      "fireRateRpm": 360.0, "damage": 34.0, "magazine": 15, "reloadSeconds": 1.4,
+      "spreadDegrees": 0.8, "recoil": 0.8, "aimZoom": 1.0 },
+    { "id": "compact-smg", "name": "Compact SMG", "category": "smg", "fireMode": "auto",
+      "fireRateRpm": 850.0, "damage": 18.0, "magazine": 30, "reloadSeconds": 1.8,
+      "spreadDegrees": 1.8, "recoil": 0.9, "aimZoom": 1.0 },
+    { "id": "service-rifle", "name": "Service Rifle", "category": "auto", "fireMode": "auto",
+      "fireRateRpm": 650.0, "damage": 28.0, "magazine": 25, "reloadSeconds": 2.2,
+      "spreadDegrees": 1.2, "recoil": 1.2, "aimZoom": 1.0 },
+    { "id": "bolt-sniper", "name": "Bolt Sniper", "category": "sniper", "fireMode": "semi",
+      "fireRateRpm": 45.0, "damage": 120.0, "magazine": 5, "reloadSeconds": 3.0,
+      "spreadDegrees": 0.1, "recoil": 2.5, "aimZoom": 4.0 }
+  ],
+  "bindings": {
+    "weaponSlot1": "1", "weaponSlot2": "2", "weaponSlot3": "3", "weaponSlot4": "4",
+    "weaponNext": "MouseWheelUp", "weaponPrev": "MouseWheelDown",
+    "reload": "R", "aimDownSights": "Mouse2"
+  },
+  "drills": [
+    "drills/drill01.json",
+    "drills/drill02.json",
+    "drills/drill03.json"
+  ]
+}

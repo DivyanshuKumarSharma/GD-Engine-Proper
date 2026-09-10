@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "root": {
+    "name": "DynamicBox",
+    "components": [
+      {
+        "type": "MeshComponent",
+        "mesh": {
+          "type": "box",
+          "x": 1.5,
+          "y": 1.5,
+          "z": 1.5
+        },
+        "material": {
+          "path": "materials/checker.mat",
+          "params": {
+            "float3": [
+              {
+                "name": "color",
+                "value0": 1.0,
+                "value1": 1.0,
+                "value2": 1.0
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "PhysicsComponent",
+        "collider": {
+          "type": "box",
+          "x": 1.5,
+          "y": 1.5,
+          "z": 1.5
+        },
+        "body": {
+          "mass": 15.0,
+          "friction": 0.5,
+          "type": "dynamic"
+        }
+      }
+    ]
+  }
+}

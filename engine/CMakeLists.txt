@@ -1,8 +1,15 @@
-cmake_minimum_required(VERSION 3.10)
+﻿cmake_minimum_required(VERSION 3.10)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 project(Engine)
+
+set(ASSETS_DIR "${CMAKE_SOURCE_DIR}/assets")
+
+configure_file(
+	${PROJECT_SOURCE_DIR}/config.h.in
+	${PROJECT_BINARY_DIR}/config.h
+)
 
 set(PROJECT_SOURCE_FILES
 	source/Engine.h
@@ -15,6 +22,10 @@ set(PROJECT_SOURCE_FILES
 	source/graphics/ShaderProgram.cpp
 	source/graphics/GraphicsAPI.h
 	source/graphics/GraphicsAPI.cpp
+	source/graphics/Texture.h
+	source/graphics/Texture.cpp
+	source/graphics/Framebuffer.h
+	source/graphics/Framebuffer.cpp
 	source/render/Material.h
 	source/render/Material.cpp
 	source/render/Mesh.h
@@ -33,6 +44,51 @@ set(PROJECT_SOURCE_FILES
 	source/scene/components/CameraComponent.cpp
 	source/scene/components/PlayerControllerComponent.h
 	source/scene/components/PlayerControllerComponent.cpp
+	source/scene/components/LightComponent.h
+	source/scene/components/LightComponent.cpp
+	source/scene/components/AnimationComponent.h
+	source/scene/components/AnimationComponent.cpp
+	source/scene/components/PhysicsComponent.h
+	source/scene/components/PhysicsComponent.cpp
+	source/scene/components/AudioComponent.h
+	source/scene/components/AudioComponent.cpp
+	source/scene/components/AudioListenerComponent.h
+	source/scene/components/AudioListenerComponent.cpp
+	source/scene/components/SpriteComponent.h
+	source/scene/components/SpriteComponent.cpp
+	source/scene/components/ui/UIElementComponent.h
+	source/scene/components/ui/UIElementComponent.cpp
+	source/scene/components/ui/CanvasComponent.h
+	source/scene/components/ui/CanvasComponent.cpp
+	source/scene/components/ui/TextComponent.h
+	source/scene/components/ui/TextComponent.cpp
+	source/scene/components/ui/ButtonComponent.h
+	source/scene/components/ui/ButtonComponent.cpp
+	source/scene/components/ui/UIInputSystem.h
+	source/scene/components/ui/UIInputSystem.cpp
+	source/scene/components/ui/RectTransformComponent.h
+	source/scene/components/ui/RectTransformComponent.cpp
+	source/io/FileSystem.h
+	source/io/FileSystem.cpp
+	source/physics/PhysicsManager.h
+	source/physics/PhysicsManager.cpp
+	source/physics/Collider.h
+	source/physics/Collider.cpp
+	source/physics/RigidBody.h
+	source/physics/RigidBody.cpp
+	source/physics/KinematicCharacterController.h
+	source/physics/KinematicCharacterController.cpp
+	source/physics/CollisionObject.h
+	source/physics/CollisionObject.cpp
+	source/audio/AudioManager.h
+	source/audio/AudioManager.cpp
+	source/audio/Audio.h
+	source/audio/Audio.cpp
+	source/font/Font.h
+	source/font/Font.cpp
+	source/font/FontManager.h
+	source/font/FontManager.cpp
+	source/Common.h
 )
 
 # Group files according to files organization
@@ -67,9 +123,93 @@ set_property(TARGET glew PROPERTY FOLDER GLEW)
 add_subdirectory(thirdparty/glm-1.0.1/glm)
 include_directories(thirdparty/glm-1.0.1)
 
+include_directories(thirdparty/stb_image)
+
+include_directories(thirdparty/json)
+
+include_directories(thirdparty/cgltf)
+
+target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_BINARY_DIR})
+
+# Add freetype
+add_subdirectory(thirdparty/freetype-2.14.1 "${CMAKE_CURRENT_BINARY_DIR}/freetype_build")
+include_directories(thirdparty/freetype-2.14.1/include)
+target_link_libraries(${PROJECT_NAME} freetype)
+
+# --- Dear ImGui (docking) + ImGuizmo: editor-only UI, never linked by the runtime ---
+set(IMGUI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/imgui")
+add_library(imgui STATIC
+	${IMGUI_DIR}/imgui.cpp
+	${IMGUI_DIR}/imgui_draw.cpp
+	${IMGUI_DIR}/imgui_tables.cpp
+	${IMGUI_DIR}/imgui_widgets.cpp
+	${IMGUI_DIR}/imgui_demo.cpp
+	${IMGUI_DIR}/ImGuizmo.cpp
+	${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+	${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+)
+target_include_directories(imgui PUBLIC
+	${IMGUI_DIR}
+	${IMGUI_DIR}/backends
+	${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/glfw-3.4/include
+)
+target_link_libraries(imgui PUBLIC glfw)
+if(WIN32)
+	target_link_libraries(imgui PUBLIC opengl32)
+elseif(APPLE)
+	find_library(OPENGL_FRAMEWORK OpenGL)
+	target_link_libraries(imgui PUBLIC ${OPENGL_FRAMEWORK})
+else()
+	target_link_libraries(imgui PUBLIC GL ${CMAKE_DL_LIBS})
+endif()
+set_property(TARGET imgui PROPERTY FOLDER ThirdParty)
+
+add_library(miniaudio INTERFACE)
+target_include_directories(miniaudio INTERFACE thirdparty/miniaudio)
+
+if(UNIX AND NOT APPLE)
+  target_link_libraries(miniaudio INTERFACE dl pthread m)
+endif()
+
+if(WIN32)
+  target_link_libraries(miniaudio INTERFACE winmm user32 ole32)
+endif()
+
+if(APPLE)
+  find_library(COREAUDIO_FRAMEWORK CoreAudio)
+  find_library(AUDIOTOOLBOX_FRAMEWORK AudioToolbox)
+  find_library(AUDIOUNIT_FRAMEWORK AudioUnit)
+  find_library(COREFOUNDATION_FRAMEWORK CoreFoundation)
+  target_link_libraries(miniaudio INTERFACE
+    ${COREAUDIO_FRAMEWORK}
+    ${AUDIOUNIT_FRAMEWORK}
+    ${AUDIOTOOLBOX_FRAMEWORK}
+    ${COREFOUNDATION_FRAMEWORK}
+  )
+endif()
+
+# Include Bullet as a subdirectory
+option(BUILD_UNIT_TESTS OFF)
+option(BUILD_BULLET2_DEMOS OFF)
+option(BUILD_EXTRAS OFF)
+option(BUILD_SHARED_LIBS OFF)
+add_subdirectory(thirdparty/bullet3-3.25)
+target_include_directories(${PROJECT_NAME} PRIVATE thirdparty/bullet3-3.25/src)
+
 # Link all thirdparty libraries
 target_link_libraries(${PROJECT_NAME} 
     glfw 
     glew_s
-	glm
+    glm
+    BulletDynamics
+    BulletCollision
+    LinearMath
+	miniaudio
+)
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+	COMMAND ${CMAKE_COMMAND} -E copy_directory
+	${ASSETS_DIR}
+	${CMAKE_BINARY_DIR}/assets
+	VERBATIM
 )

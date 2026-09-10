@@ -1,0 +1,772 @@
+{
+  "allowedWeapons": [],
+  "id": "drill03",
+  "inheritMovement": true,
+  "intro": "Everything at once. Static and moving targets, knock the crates into the green zone, then extract.",
+  "music": "",
+  "name": "DRILL 03 - FINAL TEST",
+  "objectives": [
+    {
+      "amount": 8,
+      "description": "Hit Targets",
+      "tag": "d3",
+      "targetKind": "",
+      "type": "shoot"
+    },
+    {
+      "amount": 3,
+      "description": "Hit Moving Targets",
+      "tag": "d3",
+      "targetKind": "moving",
+      "type": "shoot"
+    },
+    {
+      "amount": 3,
+      "description": "Knock Crates Into the Zone",
+      "tag": "d3_zone",
+      "targetKind": "",
+      "type": "knock"
+    },
+    {
+      "amount": 1,
+      "description": "Reach Extraction",
+      "tag": "d3_extract",
+      "targetKind": "",
+      "type": "reach"
+    }
+  ],
+  "objects": [
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.95,
+                  "value1": 0.5,
+                  "value2": 0.15
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 1.2,
+            "y": 1.2,
+            "z": 0.3
+          },
+          "type": "MeshComponent"
+        },
+        {
+          "body": {
+            "mass": 0,
+            "type": "static"
+          },
+          "collider": {
+            "type": "box",
+            "x": 1.2,
+            "y": 1.2,
+            "z": 0.3
+          },
+          "type": "PhysicsComponent"
+        },
+        {
+          "despawnDelay": 0.18,
+          "kind": "generic",
+          "tag": "d3",
+          "type": "TargetComponent"
+        }
+      ],
+      "name": "D3_S1",
+      "position": {
+        "x": -6,
+        "y": 2.6,
+        "z": 10
+      }
+    },
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.95,
+                  "value1": 0.5,
+                  "value2": 0.15
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 1.2,
+            "y": 1.2,
+            "z": 0.3
+          },
+          "type": "MeshComponent"
+        },
+        {
+          "body": {
+            "mass": 0,
+            "type": "static"
+          },
+          "collider": {
+            "type": "box",
+            "x": 1.2,
+            "y": 1.2,
+            "z": 0.3
+          },
+          "type": "PhysicsComponent"
+        },
+        {
+          "despawnDelay": 0.18,
+          "kind": "generic",
+          "tag": "d3",
+          "type": "TargetComponent"
+        }
+      ],
+      "name": "D3_S2",
+      "position": {
+        "x": 5,
+        "y": 3.0,
+        "z": 8
+      }
+    },
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.95,
+                  "value1": 0.5,
+                  "value2": 0.15
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 1.2,
+            "y": 1.2,
+            "z": 0.3
+          },
+          "type": "MeshComponent"
+        },
+        {
+          "body": {
+            "mass": 0,
+            "type": "static"
+          },
+          "collider": {
+            "type": "box",
+            "x": 1.2,
+            "y": 1.2,
+            "z": 0.3
+          },
+          "type": "PhysicsComponent"
+        },
+        {
+          "despawnDelay": 0.18,
+          "kind": "generic",
+          "tag": "d3",
+          "type": "TargetComponent"
+        }
+      ],
+      "name": "D3_S3",
+      "position": {
+        "x": -10,
+        "y": 2.6,
+        "z": 3
+      }
+    },
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.95,
+                  "value1": 0.5,
+                  "value2": 0.15
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 1.2,
+            "y": 1.2,
+            "z": 0.3
+          },
+          "type": "MeshComponent"
+        },
+        {
+          "body": {
+            "mass": 0,
+            "type": "static"
+          },
+          "collider": {
+            "type": "box",
+            "x": 1.2,
+            "y": 1.2,
+            "z": 0.3
+          },
+          "type": "PhysicsComponent"
+        },
+        {
+          "despawnDelay": 0.18,
+          "kind": "generic",
+          "tag": "d3",
+          "type": "TargetComponent"
+        }
+      ],
+      "name": "D3_S4",
+      "position": {
+        "x": 9,
+        "y": 2.8,
+        "z": 1
+      }
+    },
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.95,
+                  "value1": 0.5,
+                  "value2": 0.15
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 1.2,
+            "y": 1.2,
+            "z": 0.3
+          },
+          "type": "MeshComponent"
+        },
+        {
+          "body": {
+            "mass": 0,
+            "type": "static"
+          },
+          "collider": {
+            "type": "box",
+            "x": 1.2,
+            "y": 1.2,
+            "z": 0.3
+          },
+          "type": "PhysicsComponent"
+        },
+        {
+          "despawnDelay": 0.18,
+          "kind": "generic",
+          "tag": "d3",
+          "type": "TargetComponent"
+        }
+      ],
+      "name": "D3_S5",
+      "position": {
+        "x": 0,
+        "y": 3.2,
+        "z": -3
+      }
+    },
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.2,
+                  "value1": 0.62,
+                  "value2": 1.0
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 1.0,
+            "y": 1.0,
+            "z": 0.4
+          },
+          "type": "MeshComponent"
+        },
+        {
+          "pointA": {
+            "x": -4,
+            "y": 0,
+            "z": 0
+          },
+          "pointB": {
+            "x": 4,
+            "y": 0,
+            "z": 0
+          },
+          "speed": 3.5,
+          "type": "MovingTargetComponent"
+        },
+        {
+          "body": {
+            "mass": 0,
+            "type": "kinematic"
+          },
+          "collider": {
+            "type": "box",
+            "x": 1.0,
+            "y": 1.0,
+            "z": 0.4
+          },
+          "type": "PhysicsComponent"
+        },
+        {
+          "despawnDelay": 0.2,
+          "kind": "moving",
+          "tag": "d3",
+          "type": "TargetComponent"
+        }
+      ],
+      "name": "D3_M1",
+      "position": {
+        "x": -4,
+        "y": 2.8,
+        "z": -1
+      }
+    },
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.2,
+                  "value1": 0.62,
+                  "value2": 1.0
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 1.0,
+            "y": 1.0,
+            "z": 0.4
+          },
+          "type": "MeshComponent"
+        },
+        {
+          "pointA": {
+            "x": 0,
+            "y": 0,
+            "z": -3
+          },
+          "pointB": {
+            "x": 0,
+            "y": 0,
+            "z": 3
+          },
+          "speed": 3.0,
+          "type": "MovingTargetComponent"
+        },
+        {
+          "body": {
+            "mass": 0,
+            "type": "kinematic"
+          },
+          "collider": {
+            "type": "box",
+            "x": 1.0,
+            "y": 1.0,
+            "z": 0.4
+          },
+          "type": "PhysicsComponent"
+        },
+        {
+          "despawnDelay": 0.2,
+          "kind": "moving",
+          "tag": "d3",
+          "type": "TargetComponent"
+        }
+      ],
+      "name": "D3_M2",
+      "position": {
+        "x": 7,
+        "y": 3.4,
+        "z": -5
+      }
+    },
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.2,
+                  "value1": 0.62,
+                  "value2": 1.0
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 1.0,
+            "y": 1.0,
+            "z": 0.4
+          },
+          "type": "MeshComponent"
+        },
+        {
+          "pointA": {
+            "x": -3,
+            "y": 0,
+            "z": 0
+          },
+          "pointB": {
+            "x": 3,
+            "y": 0,
+            "z": 0
+          },
+          "speed": 4.0,
+          "type": "MovingTargetComponent"
+        },
+        {
+          "body": {
+            "mass": 0,
+            "type": "kinematic"
+          },
+          "collider": {
+            "type": "box",
+            "x": 1.0,
+            "y": 1.0,
+            "z": 0.4
+          },
+          "type": "PhysicsComponent"
+        },
+        {
+          "despawnDelay": 0.2,
+          "kind": "moving",
+          "tag": "d3",
+          "type": "TargetComponent"
+        }
+      ],
+      "name": "D3_M3",
+      "position": {
+        "x": -8,
+        "y": 2.6,
+        "z": -8
+      }
+    },
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.12,
+                  "value1": 0.85,
+                  "value2": 0.35
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 6,
+            "y": 0.05,
+            "z": 6
+          },
+          "type": "MeshComponent"
+        }
+      ],
+      "name": "D3_ZoneMarker",
+      "position": {
+        "x": 0,
+        "y": 0.56,
+        "z": -14
+      }
+    },
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.78,
+                  "value1": 0.56,
+                  "value2": 0.32
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          },
+          "type": "MeshComponent"
+        },
+        {
+          "body": {
+            "friction": 0.4,
+            "mass": 2.5,
+            "type": "dynamic"
+          },
+          "collider": {
+            "type": "box",
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          },
+          "type": "PhysicsComponent"
+        },
+        {
+          "areaMax": {
+            "x": 3.5,
+            "y": 3.0,
+            "z": -9.5
+          },
+          "areaMin": {
+            "x": -3.5,
+            "y": 0.0,
+            "z": -19.5
+          },
+          "mode": "enterArea",
+          "tag": "d3_zone",
+          "type": "KnockTargetComponent"
+        }
+      ],
+      "name": "D3_Crate1",
+      "position": {
+        "x": -2,
+        "y": 1.05,
+        "z": -10
+      }
+    },
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.78,
+                  "value1": 0.56,
+                  "value2": 0.32
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          },
+          "type": "MeshComponent"
+        },
+        {
+          "body": {
+            "friction": 0.4,
+            "mass": 2.5,
+            "type": "dynamic"
+          },
+          "collider": {
+            "type": "box",
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          },
+          "type": "PhysicsComponent"
+        },
+        {
+          "areaMax": {
+            "x": 3.5,
+            "y": 3.0,
+            "z": -9.5
+          },
+          "areaMin": {
+            "x": -3.5,
+            "y": 0.0,
+            "z": -19.5
+          },
+          "mode": "enterArea",
+          "tag": "d3_zone",
+          "type": "KnockTargetComponent"
+        }
+      ],
+      "name": "D3_Crate2",
+      "position": {
+        "x": 0,
+        "y": 1.05,
+        "z": -10
+      }
+    },
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.78,
+                  "value1": 0.56,
+                  "value2": 0.32
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          },
+          "type": "MeshComponent"
+        },
+        {
+          "body": {
+            "friction": 0.4,
+            "mass": 2.5,
+            "type": "dynamic"
+          },
+          "collider": {
+            "type": "box",
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          },
+          "type": "PhysicsComponent"
+        },
+        {
+          "areaMax": {
+            "x": 3.5,
+            "y": 3.0,
+            "z": -9.5
+          },
+          "areaMin": {
+            "x": -3.5,
+            "y": 0.0,
+            "z": -19.5
+          },
+          "mode": "enterArea",
+          "tag": "d3_zone",
+          "type": "KnockTargetComponent"
+        }
+      ],
+      "name": "D3_Crate3",
+      "position": {
+        "x": 2,
+        "y": 1.05,
+        "z": -10
+      }
+    },
+    {
+      "components": [
+        {
+          "material": {
+            "params": {
+              "float3": [
+                {
+                  "name": "color",
+                  "value0": 0.15,
+                  "value1": 0.55,
+                  "value2": 1.0
+                }
+              ]
+            },
+            "path": "materials/checker.mat"
+          },
+          "mesh": {
+            "type": "box",
+            "x": 4.5,
+            "y": 0.05,
+            "z": 4.5
+          },
+          "type": "MeshComponent"
+        }
+      ],
+      "name": "D3_ExtractMarker",
+      "position": {
+        "x": 15,
+        "y": 0.56,
+        "z": -16
+      }
+    },
+    {
+      "components": [
+        {
+          "body": {
+            "mass": 0,
+            "trigger": true,
+            "type": "static"
+          },
+          "collider": {
+            "type": "box",
+            "x": 4,
+            "y": 3.5,
+            "z": 4
+          },
+          "type": "PhysicsComponent"
+        },
+        {
+          "tag": "d3_extract",
+          "type": "ReachZoneComponent"
+        }
+      ],
+      "name": "D3_Extract",
+      "position": {
+        "x": 15,
+        "y": 2.0,
+        "z": -16
+      }
+    }
+  ],
+  "playerStart": {
+    "x": 0.0,
+    "y": 2.0,
+    "z": 16.0
+  },
+  "schemaVersion": 1,
+  "targetTime": 75.0
+}

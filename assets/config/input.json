@@ -1,0 +1,32 @@
+{
+  "actions": {
+    "MoveForward": [
+      { "device": "keyboard", "code": "W" },
+      { "device": "keyboard", "code": "Up" }
+    ],
+    "MoveBackward": [
+      { "device": "keyboard", "code": "S" },
+      { "device": "keyboard", "code": "Down" }
+    ],
+    "MoveLeft": [
+      { "device": "keyboard", "code": "A" },
+      { "device": "keyboard", "code": "Left" }
+    ],
+    "MoveRight": [
+      { "device": "keyboard", "code": "D" },
+      { "device": "keyboard", "code": "Right" }
+    ],
+    "Jump": [
+      { "device": "keyboard", "code": "Space" }
+    ],
+    "Fire": [
+      { "device": "mouse", "code": "Left" }
+    ],
+    "Pause": [
+      { "device": "keyboard", "code": "Escape" }
+    ],
+    "Confirm": [
+      { "device": "keyboard", "code": "Enter" }
+    ]
+  }
+}

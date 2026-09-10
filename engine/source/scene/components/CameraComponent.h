@@ -9,6 +9,8 @@ namespace eng
     {
         COMPONENT(CameraComponent)
     public:
+        void LoadProperties(const nlohmann::json& json) override;
+        void SaveProperties(nlohmann::json& json) const override;
         void Update(float deltaTime) override;
 
         glm::mat4 GetViewMatrix() const;

@@ -2,7 +2,13 @@
 #include "graphics/ShaderProgram.h"
 #include "render/Material.h"
 #include "render/Mesh.h"
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
+
+#include <cstring>
 #include <iostream>
+#include <vector>
 
 namespace eng
 {
@@ -15,6 +21,14 @@ namespace eng
     std::shared_ptr<ShaderProgram> GraphicsAPI::CreateShaderProgram(const std::string& vertexSource,
         const std::string& fragmentSource)
     {
+        ShaderKey key{ vertexSource, fragmentSource };
+        auto it = m_shaderCache.find(key);
+        if (it != m_shaderCache.end())
+        {
+            return it->second;
+        }
+
+
         GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
         const char* vertexShaderCStr = vertexSource.c_str();
         glShaderSource(vertexShader, 1, &vertexShaderCStr, nullptr);
@@ -61,7 +75,191 @@ namespace eng
         glDeleteShader(vertexShader);
         glDeleteShader(fragmentShader);
 
-        return std::make_shared<ShaderProgram>(shaderProgramID);
+        auto shaderProgram = std::make_shared<ShaderProgram>(shaderProgramID);
+        m_shaderCache.emplace(key, shaderProgram);
+
+        return shaderProgram;
+    }
+
+    const std::shared_ptr<ShaderProgram>& GraphicsAPI::GetDefaultShaderProgram()
+    {
+        if (!m_defaultShaderProgram)
+        {
+            std::string vertexShaderSource = R"(
+            #version 330 core
+            layout (location = 0) in vec3 position;
+            layout (location = 1) in vec3 color;
+            layout (location = 2) in vec2 uv;
+            layout (location = 3) in vec3 normal;
+        
+            out vec2 vUV;
+            out vec3 vNormal;
+            out vec3 vFragPos;
+        
+            uniform mat4 uModel;
+            uniform mat4 uView;
+            uniform mat4 uProjection;
+        
+            void main()
+            {
+                vUV = uv;
+                vNormal = normalize(transpose(inverse(mat3(uModel))) * normal);
+                vFragPos = vec3(uModel * vec4(position, 1.0));
+                gl_Position = uProjection * uView * uModel * vec4(position, 1.0);
+            }
+            )";
+
+            std::string fragmentShaderSource = R"(
+            #version 330 core
+
+            struct Light
+            {
+                vec3 color;
+                vec3 direction;
+            };
+
+            uniform Light uLight;
+            uniform vec3 uCameraPos;
+
+            out vec4 FragColor;
+
+            in vec2 vUV;
+            in vec3 vNormal;
+            in vec3 vFragPos;
+
+            uniform sampler2D baseColorTexture;
+
+            void main()
+            {
+                vec3 norm = normalize(vNormal);
+                
+                // diffuse
+                vec3 lightDir = normalize(-uLight.direction);
+                float diff = max(dot(norm, lightDir), 0.0);
+                vec3 diffuse = diff * uLight.color;
+
+                // specular
+                vec3 viewDir = normalize(uCameraPos - vFragPos);
+                vec3 redlectDir = reflect(-lightDir, norm);
+                float spec = pow(max(dot(viewDir, redlectDir), 0.0), 32.0);
+                float specularStrength = 0.5;
+                vec3 specular = specularStrength * spec * uLight.color;
+                
+                // ambient
+                const float ambientStrength = 0.4;
+                vec3 ambient = ambientStrength * uLight.color;
+    
+                vec3 result = diffuse + specular + ambient;
+
+                vec4 texColor = texture(baseColorTexture, vUV);
+
+                FragColor = texColor * vec4(result, 1.0);
+            }
+            )";
+
+            m_defaultShaderProgram = CreateShaderProgram(vertexShaderSource, fragmentShaderSource);
+        }
+
+        return m_defaultShaderProgram;
+    }
+
+    const std::shared_ptr<ShaderProgram>& GraphicsAPI::GetDefault2DShaderProgram()
+    {
+        if (!m_default2DShaderProgram)
+        {
+            std::string vertexShaderSource = R"(
+            #version 330 core
+            layout (location = 0) in vec2 position;
+        
+            out vec2 vUV;
+        
+            uniform mat4 uModel;
+            uniform mat4 uView;
+            uniform mat4 uProjection;
+
+            uniform vec2 uPivot;
+            uniform vec2 uSize;    
+
+            uniform vec2 uUVMin;
+            uniform vec2 uUVMax;  
+        
+            void main()
+            {
+                vec2 local = (position - uPivot) * uSize;
+                vUV = mix(uUVMin, uUVMax, position);
+                
+                gl_Position = uProjection * uView * uModel * vec4(local, 0.0, 1.0);
+            }
+            )";
+
+            std::string fragmentShaderSource = R"(
+            #version 330 core
+
+            in vec2 vUV;
+
+            uniform vec4 uColor;
+
+            uniform sampler2D uTex;
+
+            out vec4 FragColor;
+
+            void main()
+            {
+                vec4 src = texture(uTex, vUV) * uColor;
+                FragColor = src;
+            }
+            )";
+
+            m_default2DShaderProgram = CreateShaderProgram(vertexShaderSource, fragmentShaderSource);
+        }
+        return m_default2DShaderProgram;
+    }
+
+    const std::shared_ptr<ShaderProgram>& GraphicsAPI::GetDefaultUIShaderProgram()
+    {
+        if (!m_defaultUIShaderProgram)
+        {
+            std::string vertexShaderSource = R"(
+            #version 330 core
+            layout (location = 0) in vec2 position;
+            layout (location = 1) in vec4 color;
+            layout (location = 2) in vec2 uv;
+
+            out vec2 vUV;
+            out vec4 vColor;
+        
+            uniform mat4 uProjection;
+
+            void main()
+            {
+                vUV = uv;
+                vColor = color;
+                
+                gl_Position = uProjection * vec4(position, 0.0, 1.0);
+            }
+            )";
+
+            std::string fragmentShaderSource = R"(
+            #version 330 core
+
+            in vec2 vUV;
+            in vec4 vColor;
+
+            uniform sampler2D uTex;
+            uniform int uUseTexture;
+
+            out vec4 FragColor;
+
+            void main()
+            {
+                vec4 src = (uUseTexture != 0) ? texture(uTex, vUV) * vColor : vColor;
+                FragColor = src;
+            }
+            )";
+
+            m_defaultUIShaderProgram = CreateShaderProgram(vertexShaderSource, fragmentShaderSource);
+        }
+        return m_defaultUIShaderProgram;
     }
 
     GLuint GraphicsAPI::CreateVertexBuffer(const std::vector<float>& vertices)
@@ -94,6 +292,95 @@ namespace eng
         glClear(GL_COLOR_BUFFER_BIT  | GL_DEPTH_BUFFER_BIT);
     }
 
+    bool GraphicsAPI::SaveScreenshot(const std::string& path)
+    {
+        const int width = m_viewport.width;
+        const int height = m_viewport.height;
+        if (width <= 0 || height <= 0)
+        {
+            return false;
+        }
+
+        const std::size_t stride = static_cast<std::size_t>(width) * 3;
+        std::vector<unsigned char> pixels(stride * height);
+
+        glReadBuffer(GL_FRONT);
+        glPixelStorei(GL_PACK_ALIGNMENT, 1);
+        glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
+
+        // OpenGL's origin is bottom-left; PNG expects top-left.
+        std::vector<unsigned char> flipped(pixels.size());
+        for (int y = 0; y < height; ++y)
+        {
+            std::memcpy(&flipped[static_cast<std::size_t>(y) * stride],
+                &pixels[static_cast<std::size_t>(height - 1 - y) * stride], stride);
+        }
+
+        return stbi_write_png(path.c_str(), width, height, 3,
+            flipped.data(), static_cast<int>(stride)) != 0;
+    }
+
+    const Rect& GraphicsAPI::GetViewport() const
+    {
+        return m_viewport;
+    }
+
+    void GraphicsAPI::SetViewport(int x, int y, int width, int height)
+    {
+        glViewport(x, y, width, height);
+        m_viewport.x = x;
+        m_viewport.y = y;
+        m_viewport.width = width;
+        m_viewport.height = height;
+    }
+
+    void GraphicsAPI::SetDepthTestEnabled(bool enabled)
+    {
+        if (enabled)
+        {
+            glEnable(GL_DEPTH_TEST);
+        }
+        else
+        {
+            glDisable(GL_DEPTH_TEST);
+        }
+    }
+
+    void GraphicsAPI::SetBlendMode(BlendMode mode)
+    {
+        switch (mode)
+        {
+        case BlendMode::Disabled:
+        {
+            glDisable(GL_BLEND);
+        }
+        break;
+        case BlendMode::Alpha:
+        {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        }
+        break;
+        case BlendMode::Additive:
+        {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_ONE, GL_ONE);
+        }
+        break;
+        case BlendMode::Multiply:
+        {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_DST_COLOR, GL_ZERO);
+        }
+        break;
+        default:
+        {
+            glDisable(GL_BLEND);
+        }
+            break;
+        }
+    }
+
     void GraphicsAPI::BindShaderProgram(ShaderProgram* shaderProgram)
     {
         if (shaderProgram)
@@ -115,6 +402,14 @@ namespace eng
         if (mesh)
         {
             mesh->Bind();
+        }
+    }
+
+    void GraphicsAPI::UnbindMesh(Mesh* mesh)
+    {
+        if (mesh)
+        {
+            mesh->Unbind();
         }
     }
 

@@ -4,6 +4,20 @@
 
 namespace eng
 {
+    void CameraComponent::LoadProperties(const nlohmann::json& json)
+    {
+        m_fov = json.value("fov", m_fov);
+        m_nearPlane = json.value("nearPlane", m_nearPlane);
+        m_farPlane = json.value("farPlane", m_farPlane);
+    }
+
+    void CameraComponent::SaveProperties(nlohmann::json& json) const
+    {
+        json["fov"] = m_fov;
+        json["nearPlane"] = m_nearPlane;
+        json["farPlane"] = m_farPlane;
+    }
+
     void CameraComponent::Update(float deltaTime)
     {
     }
