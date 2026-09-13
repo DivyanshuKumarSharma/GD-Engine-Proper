@@ -40,6 +40,11 @@ namespace eng
         {
             return m_assetsRootOverride;
         }
+        return GetDefaultAssetsFolder();
+    }
+
+    std::filesystem::path FileSystem::GetDefaultAssetsFolder() const
+    {
 #if defined (ASSETS_ROOT)
         auto path = std::filesystem::path(std::string(ASSETS_ROOT));
         if (std::filesystem::exists(path))

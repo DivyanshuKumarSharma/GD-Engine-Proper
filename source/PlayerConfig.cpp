@@ -18,6 +18,45 @@ namespace
     }
 }
 
+void WeaponConfig::ApplyOverrides(const nlohmann::json& weapon)
+{
+    fireAction = weapon.value("fireAction", fireAction);
+    fireInterval = weapon.value("fireInterval", fireInterval);
+    semiAuto = weapon.value("semiAuto", semiAuto);
+    animationName = weapon.value("animation", animationName);
+    audioName = weapon.value("audio", audioName);
+    weaponObjectName = weapon.value("weaponObject", weaponObjectName);
+    muzzleObjectName = weapon.value("muzzleObject", muzzleObjectName);
+    aimZoomFactor = weapon.value("aimZoomFactor", aimZoomFactor);
+
+    if (weapon.contains("hiddenObjects"))
+    {
+        hiddenObjectNames = weapon["hiddenObjects"].get<std::vector<std::string>>();
+    }
+
+    if (weapon.contains("projectile"))
+    {
+        const auto& projectile = weapon["projectile"];
+        projectileMaterial = projectile.value("material", projectileMaterial);
+        projectileRadius = projectile.value("radius", projectileRadius);
+        projectileSectors = projectile.value("sectors", projectileSectors);
+        projectileStacks = projectile.value("stacks", projectileStacks);
+        projectileMass = projectile.value("mass", projectileMass);
+        projectileFriction = projectile.value("friction", projectileFriction);
+        projectileImpulse = projectile.value("impulse", projectileImpulse);
+        projectileLifetime = projectile.value("lifetime", projectileLifetime);
+
+        if (projectile.contains("spawnOffset"))
+        {
+            const auto& offset = projectile["spawnOffset"];
+            projectileSpawnOffset = glm::vec3(
+                offset.value("x", projectileSpawnOffset.x),
+                offset.value("y", projectileSpawnOffset.y),
+                offset.value("z", projectileSpawnOffset.z));
+        }
+    }
+}
+
 bool PlayerConfig::Load(const std::string& assetPath, PlayerConfig& result, std::string* errorMessage)
 {
     try
@@ -50,41 +89,7 @@ bool PlayerConfig::Load(const std::string& assetPath, PlayerConfig& result, std:
 
         if (root.contains("weapon"))
         {
-            const auto& weapon = root["weapon"];
-            loaded.weapon.fireAction = weapon.value("fireAction", loaded.weapon.fireAction);
-            loaded.weapon.fireInterval = weapon.value("fireInterval", loaded.weapon.fireInterval);
-            loaded.weapon.semiAuto = weapon.value("semiAuto", loaded.weapon.semiAuto);
-            loaded.weapon.animationName = weapon.value("animation", loaded.weapon.animationName);
-            loaded.weapon.audioName = weapon.value("audio", loaded.weapon.audioName);
-            loaded.weapon.weaponObjectName = weapon.value("weaponObject", loaded.weapon.weaponObjectName);
-            loaded.weapon.muzzleObjectName = weapon.value("muzzleObject", loaded.weapon.muzzleObjectName);
-
-            if (weapon.contains("hiddenObjects"))
-            {
-                loaded.weapon.hiddenObjectNames = weapon["hiddenObjects"].get<std::vector<std::string>>();
-            }
-
-            if (weapon.contains("projectile"))
-            {
-                const auto& projectile = weapon["projectile"];
-                loaded.weapon.projectileMaterial = projectile.value("material", loaded.weapon.projectileMaterial);
-                loaded.weapon.projectileRadius = projectile.value("radius", loaded.weapon.projectileRadius);
-                loaded.weapon.projectileSectors = projectile.value("sectors", loaded.weapon.projectileSectors);
-                loaded.weapon.projectileStacks = projectile.value("stacks", loaded.weapon.projectileStacks);
-                loaded.weapon.projectileMass = projectile.value("mass", loaded.weapon.projectileMass);
-                loaded.weapon.projectileFriction = projectile.value("friction", loaded.weapon.projectileFriction);
-                loaded.weapon.projectileImpulse = projectile.value("impulse", loaded.weapon.projectileImpulse);
-                loaded.weapon.projectileLifetime = projectile.value("lifetime", loaded.weapon.projectileLifetime);
-
-                if (projectile.contains("spawnOffset"))
-                {
-                    const auto& offset = projectile["spawnOffset"];
-                    loaded.weapon.projectileSpawnOffset = glm::vec3(
-                        offset.value("x", loaded.weapon.projectileSpawnOffset.x),
-                        offset.value("y", loaded.weapon.projectileSpawnOffset.y),
-                        offset.value("z", loaded.weapon.projectileSpawnOffset.z));
-                }
-            }
+            loaded.weapon.ApplyOverrides(root["weapon"]);
         }
 
         RequirePositive(loaded.weapon.fireInterval, "weapon.fireInterval");

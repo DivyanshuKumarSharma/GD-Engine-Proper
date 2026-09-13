@@ -8,6 +8,7 @@
 #include "Bullet.h"
 #include "JumpPlatform.h"
 #include "Player.h"
+#include "course/CourseDirector.h"
 #include "hud/CrosshairComponent.h"
 #include "hud/HudPanelComponent.h"
 #include "targets/KnockTargetComponent.h"
@@ -115,41 +116,121 @@ namespace editor
             return true;
         }
 
-        // Recursively bake authored movement settings into a scene-doc's Player.
-        bool PatchPlayerMovement(nlohmann::json& node, const game::MovementSettings& mv)
+        // Finds the MainPlayer object's doc anywhere in a scene-schema tree.
+        nlohmann::json* FindPlayerNode(nlohmann::json& node)
         {
             if (node.is_object())
             {
-                const bool isPlayer = node.value("type", "") == "Player" || node.value("name", "") == "MainPlayer";
-                if (isPlayer && node.contains("components") && node["components"].is_array())
+                if (node.value("type", "") == "Player" || node.value("name", "") == "MainPlayer")
                 {
-                    for (auto& c : node["components"])
-                    {
-                        if (c.value("type", "") != "PlayerControllerComponent") continue;
-                        c["moveModel"] = "accel";
-                        c["moveSpeed"] = mv.moveSpeed;
-                        c["jumpHeight"] = mv.jumpHeight;
-                        c["groundAccel"] = mv.groundAccel;
-                        c["groundDecel"] = mv.groundDecel;
-                        c["friction"] = mv.friction;
-                        c["airControl"] = mv.airControl;
-                        c["lookSensitivity"] = mv.mouseSensitivity * 6.0f; // map to engine units
-                        return true;
-                    }
+                    return &node;
                 }
                 for (auto& [key, value] : node.items())
                 {
-                    if (value.is_structured() && PatchPlayerMovement(value, mv)) return true;
+                    (void)key;
+                    if (value.is_structured())
+                    {
+                        if (auto* found = FindPlayerNode(value)) return found;
+                    }
                 }
             }
             else if (node.is_array())
             {
                 for (auto& item : node)
                 {
-                    if (PatchPlayerMovement(item, mv)) return true;
+                    if (auto* found = FindPlayerNode(item)) return found;
                 }
             }
-            return false;
+            return nullptr;
+        }
+
+        // Bakes authored movement settings into a scene-doc's Player.
+        void PatchPlayerMovement(nlohmann::json& sceneDoc, const game::MovementSettings& mv)
+        {
+            nlohmann::json* player = FindPlayerNode(sceneDoc);
+            if (!player || !player->contains("components") || !(*player)["components"].is_array())
+            {
+                return;
+            }
+            for (auto& c : (*player)["components"])
+            {
+                if (c.value("type", "") != "PlayerControllerComponent") continue;
+                c["moveModel"] = "accel";
+                c["moveSpeed"] = mv.moveSpeed;
+                c["jumpHeight"] = mv.jumpHeight;
+                c["groundAccel"] = mv.groundAccel;
+                c["groundDecel"] = mv.groundDecel;
+                c["friction"] = mv.friction;
+                c["airControl"] = mv.airControl;
+                c["lookSensitivity"] = mv.mouseSensitivity * 6.0f; // map to engine units
+                return;
+            }
+        }
+
+        // Attaches a visible weapon model to the Player and bakes a
+        // "weaponOverride" so the drill/project's authored WeaponDef (fire mode,
+        // rate, zoom, sounds) actually drives play - see Player::LoadProperties.
+        void PatchPlayerWeapon(nlohmann::json& sceneDoc, const game::WeaponDef& weapon)
+        {
+            nlohmann::json* player = FindPlayerNode(sceneDoc);
+            if (!player)
+            {
+                return;
+            }
+
+            std::string audioClipName;
+            if (!weapon.fireSound.empty() && player->contains("components") && (*player)["components"].is_array())
+            {
+                for (auto& c : (*player)["components"])
+                {
+                    if (c.value("type", "") != "AudioComponent") continue;
+                    if (!c.contains("audio") || !c["audio"].is_array()) c["audio"] = nlohmann::json::array();
+                    audioClipName = "weapon_" + weapon.id;
+                    bool exists = false;
+                    for (const auto& clip : c["audio"])
+                    {
+                        if (clip.value("name", "") == audioClipName) { exists = true; break; }
+                    }
+                    if (!exists)
+                    {
+                        c["audio"].push_back({ { "name", audioClipName }, { "path", weapon.fireSound } });
+                    }
+                    break;
+                }
+            }
+
+            nlohmann::json weaponOverride = game::WeaponCatalog::PlayerOverrideDoc(weapon);
+            if (!audioClipName.empty())
+            {
+                weaponOverride["audio"] = audioClipName;
+            }
+            (*player)["weaponOverride"] = std::move(weaponOverride);
+
+            // Replace any previously-attached weapon model so switching weapons
+            // between play sessions doesn't leave a stale one behind.
+            if (!player->contains("children") || !(*player)["children"].is_array())
+            {
+                (*player)["children"] = nlohmann::json::array();
+            }
+            auto& kids = (*player)["children"];
+            kids.erase(std::remove_if(kids.begin(), kids.end(),
+                [](const nlohmann::json& c) { return c.value("name", "") == "Gun"; }), kids.end());
+            kids.push_back(game::WeaponCatalog::EquipModel(weapon));
+        }
+
+        // Drops the editor's live drill-content layer from a scene doc. During
+        // play the CourseDirector/DrillRunner is the sole spawner of drill
+        // content (from the DrillDefinition, not a pre-baked copy) - keeping both
+        // would duplicate every target.
+        void StripDrillRoot(nlohmann::json& sceneDoc)
+        {
+            if (!sceneDoc.contains("objects") || !sceneDoc["objects"].is_array())
+            {
+                return;
+            }
+            auto& objects = sceneDoc["objects"];
+            objects.erase(std::remove_if(objects.begin(), objects.end(),
+                [](const nlohmann::json& o) { return o.value("name", "") == "DrillRoot"; }), objects.end());
         }
 
 #if defined(_WIN32)
@@ -270,6 +351,7 @@ namespace editor
 
         auto& fs = eng::Engine::GetInstance().GetFileSystem();
         fs.SetAssetsRootOverride(m_project.Paths().Root());
+        m_inputMapLoaded = LoadProjectInputMap();
 
         LoadEnvironmentScene();
         RefreshAssets();
@@ -290,6 +372,29 @@ namespace editor
         EditorLog::Success("project", "Opened '" + m_project.name + "' (" +
             std::to_string(m_project.drills.size()) + " drill(s)).");
         m_statusLine = "Opened " + m_project.Paths().Root().string();
+        return true;
+    }
+
+    bool EditorApp::LoadProjectInputMap()
+    {
+        auto& input = eng::Engine::GetInstance().GetInputManager();
+        const auto path = m_project.Paths().Resolve("config/input.json");
+        std::ifstream file(path, std::ios::binary);
+        if (!file.is_open())
+        {
+            input.ClearActionMap();
+            EditorLog::Warn("input", "config/input.json not found - movement, firing, pause and "
+                "confirm will not respond during Play until one exists.");
+            return false;
+        }
+        std::stringstream ss;
+        ss << file.rdbuf();
+        std::string error;
+        if (!input.LoadActionMap(ss.str(), &error))
+        {
+            EditorLog::Error("input", "config/input.json is invalid: " + error);
+            return false;
+        }
         return true;
     }
 
@@ -324,6 +429,41 @@ namespace editor
         }
         m_scene = scene;
         engine.SetScene(m_scene);
+    }
+
+    void EditorApp::SeedDefaultAssets(const std::filesystem::path& projectRoot)
+    {
+        static const char* kManifest[] = {
+            "materials/checker.mat",
+            "materials/suzanne.mat",
+            "textures/checker.png",
+            "shaders/vertex.glsl",
+            "shaders/fragment.glsl",
+            "audio/jump.wav",
+            "audio/shoot.wav",
+            "audio/step.wav",
+            "fonts/arial.ttf",
+            "models/suzanne/Suzanne_BaseColor.png",
+        };
+
+        const auto source = eng::Engine::GetInstance().GetFileSystem().GetDefaultAssetsFolder();
+        std::error_code ec;
+        for (const char* relative : kManifest)
+        {
+            const auto from = source / relative;
+            const auto to = projectRoot / relative;
+            if (!std::filesystem::exists(from, ec))
+            {
+                continue; // this CourseMaker install doesn't ship that default; skip it
+            }
+            std::filesystem::create_directories(to.parent_path(), ec);
+            std::filesystem::copy_file(from, to, std::filesystem::copy_options::skip_existing, ec);
+            if (ec)
+            {
+                EditorLog::Warn("project", "Could not seed default asset '" + std::string(relative) + "': " + ec.message());
+                ec.clear();
+            }
+        }
     }
 
     void EditorApp::RefreshAssets()
@@ -418,12 +558,7 @@ namespace editor
         // Persist the working scene as the environment shell, minus the drill
         // layer (that belongs to the drill files, not the environment).
         nlohmann::json sceneDoc = m_scene->Serialize();
-        if (sceneDoc.contains("objects") && sceneDoc["objects"].is_array())
-        {
-            auto& arr = sceneDoc["objects"];
-            arr.erase(std::remove_if(arr.begin(), arr.end(),
-                [](const nlohmann::json& o) { return o.value("name", "") == "DrillRoot"; }), arr.end());
-        }
+        StripDrillRoot(sceneDoc);
         const auto scenePath = m_project.Paths().Resolve(m_project.environmentScene);
         std::error_code ec;
         std::filesystem::create_directories(scenePath.parent_path(), ec);
@@ -564,33 +699,130 @@ namespace editor
     }
 
     // --------------------------------------------------------------------- play
-    void EditorApp::EnterPlay()
+    const WeaponDef* EditorApp::ResolveActiveWeapon() const
     {
-        if (!m_scene || m_play.IsPlaying())
+        if (m_activeDrill >= 0 && m_activeDrill < static_cast<int>(m_project.drills.size()))
+        {
+            const auto& allowed = m_project.drills[m_activeDrill].allowedWeapons;
+            if (!allowed.empty())
+            {
+                if (const auto* weapon = m_project.FindWeapon(allowed.front()))
+                {
+                    return weapon;
+                }
+            }
+        }
+        return m_project.weapons.empty() ? nullptr : &m_project.weapons.front();
+    }
+
+    void EditorApp::EnterPlay(bool wholeCourse)
+    {
+        if (!m_scene || m_play.IsPlaying() || !m_hasProject)
         {
             return;
         }
+        if (!wholeCourse && (m_activeDrill < 0 || m_activeDrill >= static_cast<int>(m_project.drills.size())))
+        {
+            EditorLog::Warn("play", "No active drill to play - select one in the Course panel.");
+            return;
+        }
+        if (wholeCourse && m_project.drills.empty())
+        {
+            EditorLog::Warn("play", "The course has no drills yet.");
+            return;
+        }
+
         m_placement.Abort(m_scene.get());
         FlushActiveDrill();
+        if (!m_inputMapLoaded)
+        {
+            m_inputMapLoaded = LoadProjectInputMap();
+        }
 
         game::MovementSettings mv = m_project.movementDefaults;
         if (m_activeDrill >= 0 && m_activeDrill < static_cast<int>(m_project.drills.size()))
         {
             mv = m_project.drills[m_activeDrill].ResolvedMovement(m_project.movementDefaults);
         }
+        const WeaponDef* weapon = ResolveActiveWeapon();
+        WeaponDef weaponCopy;
+        if (weapon) weaponCopy = *weapon;
+        const bool hasWeapon = weapon != nullptr;
+
         auto playScene = m_play.EnterPlay(m_scene.get(),
-            [mv](nlohmann::json& doc) { PatchPlayerMovement(doc, mv); });
+            [mv, hasWeapon, weaponCopy](nlohmann::json& doc)
+            {
+                StripDrillRoot(doc);
+                PatchPlayerMovement(doc, mv);
+                if (hasWeapon)
+                {
+                    PatchPlayerWeapon(doc, weaponCopy);
+                }
+            });
         if (!playScene)
         {
             return;
         }
         m_scene = playScene;
+        m_lastPlayWasWholeCourse = wholeCourse;
         auto& engine = eng::Engine::GetInstance();
         engine.SetScene(m_scene);
         engine.SetCameraOverride(nullptr);       // use the scene's own (player) camera
         engine.GetInputManager().SetSuppressed(false);
-        engine.SetCursorEnabled(false);
-        m_statusLine = "Playing - press Esc to stop and return to editing.";
+
+        BeginDirectorRun(wholeCourse);
+        m_statusLine = "Playing - Esc to pause (and reach Stop), Enter to confirm.";
+    }
+
+    void EditorApp::BeginDirectorRun(bool wholeCourse)
+    {
+        eng::GameObject* playerObject = m_scene->FindObjectByName("MainPlayer");
+        Player* player = (playerObject && std::string(playerObject->GetTypeName()) == "Player")
+            ? static_cast<Player*>(playerObject) : nullptr;
+        if (!player)
+        {
+            EditorLog::Error("play", "Scene has no 'MainPlayer' Player object - cannot start a run.");
+        }
+
+        std::vector<game::DrillDefinition> drills;
+        if (wholeCourse)
+        {
+            drills.reserve(m_project.drills.size());
+            for (const auto& drill : m_project.drills) drills.push_back(drill.ToRuntime());
+        }
+        else
+        {
+            drills.push_back(m_project.drills[m_activeDrill].ToRuntime());
+        }
+
+        m_director = std::make_unique<game::CourseDirector>();
+        m_director->SetFastTransitions(m_demo); // instant countdown for the automated workflow test
+        m_director->onQuitRequested = [this]() { ExitPlay(); };
+        m_director->Init(m_scene.get(), player, nullptr, std::move(drills));
+        if (wholeCourse)
+        {
+            m_director->StartRun();
+        }
+        else
+        {
+            m_director->BeginDrill(0);
+        }
+    }
+
+    void EditorApp::RestartPlay()
+    {
+        if (!m_play.IsPlaying())
+        {
+            return;
+        }
+        auto scene = m_play.Restart();
+        if (!scene)
+        {
+            return;
+        }
+        m_scene = scene;
+        eng::Engine::GetInstance().SetScene(m_scene);
+        BeginDirectorRun(m_lastPlayWasWholeCourse);
     }
 
     void EditorApp::ExitPlay()
@@ -599,6 +831,7 @@ namespace editor
         {
             return;
         }
+        m_director.reset();
         auto editScene = m_play.ExitPlay();
         m_scene = editScene ? editScene : std::make_shared<eng::Scene>();
         auto& engine = eng::Engine::GetInstance();
@@ -606,6 +839,17 @@ namespace editor
         engine.GetInputManager().SetSuppressed(true);
         engine.SetCursorEnabled(true);
         m_statusLine = "Returned to editor.";
+    }
+
+    void EditorApp::TogglePauseDirected()
+    {
+        if (!m_director)
+        {
+            m_play.TogglePause();
+            return;
+        }
+        m_director->OnPausePressed();
+        m_play.SetPaused(m_director->State() == game::GameState::Paused);
     }
 
     // ------------------------------------------------------------------- update
@@ -627,9 +871,16 @@ namespace editor
         {
             const bool gameHasFocus = m_viewportFocused || glfwGetInputMode(engine.GetWindow(), GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
             engine.GetInputManager().SetSuppressed(!gameHasFocus || io.WantTextInput);
+
+            // Raw key checks (not the suppressible action map) so pause/confirm
+            // always work even if a project has no config/input.json yet.
             if (ImGui::IsKeyPressed(ImGuiKey_Escape))
             {
-                ExitPlay();
+                TogglePauseDirected();
+            }
+            if (ImGui::IsKeyPressed(ImGuiKey_Enter) && m_director)
+            {
+                m_director->OnConfirmPressed();
             }
         }
         else
@@ -667,6 +918,14 @@ namespace editor
 
         if (m_play.IsPlaying())
         {
+            // Director first (may spawn/despawn drill content, teleport the
+            // player, change state) so the scene tick right after never runs
+            // mid-transition - mirrors the standalone game's Update order.
+            if (m_director)
+            {
+                const float dt = std::min(deltaTime, 0.1f);
+                m_director->Update(dt);
+            }
             m_play.Tick(deltaTime, m_scene.get());
         }
         else
@@ -807,20 +1066,117 @@ namespace editor
         case 6:
         {
             m_demoSnapshotCheck = m_scene->Serialize();
-            EnterPlay();
+            EnterPlay(false); // playtest the active drill only
             expect(m_play.IsPlaying(), "entered play mode");
-            m_demoWait = 10;
+            expect(m_director != nullptr, "CourseDirector created for the playtest");
+            m_demoPollFrames = 0;
+            m_demoWait = 1;
             break;
         }
         case 7:
+        {
+            // Poll for Playing instead of guessing a frame count: correct at any
+            // host frame rate, capped so a real failure still terminates.
+            const bool ready = m_director && m_director->State() == game::GameState::Playing;
+            if (!ready && ++m_demoPollFrames < 600)
+            {
+                --m_demoStep; // stay on this step next tick
+            }
+            else
+            {
+                expect(ready, "director reached Playing after intro + countdown");
+            }
+            m_demoWait = 1;
+            break;
+        }
+        case 8:
+        {
+            eng::GameObject* drillRoot = m_scene->FindObjectByName("DrillRoot");
+            const std::size_t expectedTargets = (m_activeDrill >= 0 &&
+                m_activeDrill < static_cast<int>(m_project.drills.size()))
+                ? m_project.drills[m_activeDrill].content.size() : 0;
+            expect(drillRoot != nullptr, "DrillRunner spawned the drill's DrillRoot");
+            expect(drillRoot && drillRoot->GetChildren().size() == expectedTargets,
+                "drill content spawned exactly once (no duplicate from the editor's layer)");
+
+            eng::GameObject* playerObject = m_scene->FindObjectByName("MainPlayer");
+            eng::GameObject* gun = playerObject ? playerObject->FindChildByName("Gun") : nullptr;
+            expect(gun != nullptr, "a weapon model is equipped on the player");
+
+            eng::GameObject* cube = m_scene->FindObjectByName("D1_Cube_C");
+            if (playerObject && std::string(playerObject->GetTypeName()) == "Player" && cube)
+            {
+                auto* player = static_cast<Player*>(playerObject);
+                const glm::vec3 eye = player->GetWorldPosition();
+                const glm::vec3 toTarget = cube->GetWorldPosition() - eye;
+                if (glm::dot(toTarget, toTarget) > 1e-4f)
+                {
+                    player->InjectShot(eye, glm::normalize(toTarget));
+                }
+            }
+            m_demoWait = 4; // let ShootingController resolve the injected shot
+            break;
+        }
+        case 9:
             shot("play");
-            expect(m_play.PlayTimeSeconds() > 0.0, "play clock advanced");
+            expect(m_director && m_director->Stats().hits > 0,
+                "hitscan shot fired from the spawned player registered a hit on a real drill target");
+            expect(m_director && m_director->Stats().shotsFired > 0, "shots-fired stat updated");
+            m_demoPollFrames = 0;
+            m_demoWait = 1;
+            break;
+        case 10:
+        {
+            // Skip straight to "all objectives met" (same debug hook the
+            // standalone game's bot uses) rather than reproducing every shot -
+            // what's under test here is the state machine, not marksmanship.
+            if (m_demoPollFrames == 0 && m_director)
+            {
+                m_director->DebugCompleteActiveDrill();
+            }
+            const bool ready = m_director && m_director->State() == game::GameState::DrillComplete;
+            if (!ready && ++m_demoPollFrames < 600)
+            {
+                --m_demoStep;
+            }
+            else
+            {
+                expect(ready, "completing all objectives reached DrillComplete");
+                m_demoPollFrames = 0;
+            }
+            m_demoWait = 1;
+            break;
+        }
+        case 11:
+        {
+            // A single-drill playtest has nowhere to go after DrillComplete but
+            // RunComplete once its dwell elapses - the results screen.
+            const bool ready = m_director && m_director->State() == game::GameState::RunComplete;
+            if (!ready && ++m_demoPollFrames < 600)
+            {
+                --m_demoStep;
+            }
+            else
+            {
+                expect(ready, "single-drill run reached RunComplete (results) after the drill-complete dwell");
+                if (m_director)
+                {
+                    expect(!m_director->DrillResults().empty(), "a DrillResult was recorded");
+                    expect(m_director->FinalScore().total >= 0, "final score computed");
+                }
+            }
             m_demoWait = 2;
             break;
-        case 8:
+        }
+        case 12:
+            shot("results");
+            m_demoWait = 2;
+            break;
+        case 13:
         {
             ExitPlay();
             expect(!m_play.IsPlaying(), "returned to editor");
+            expect(m_director == nullptr, "CourseDirector torn down on Stop");
             const auto restored = m_scene->Serialize();
             expect(restored.value("objects", nlohmann::json::array()).size() ==
                    m_demoSnapshotCheck.value("objects", nlohmann::json::array()).size(),
@@ -828,7 +1184,7 @@ namespace editor
             m_demoWait = 3;
             break;
         }
-        case 9:
+        case 14:
             shot("back");
             std::printf("\n[demo] %s (%d failed checks)\n",
                 m_demoFails == 0 ? "DEMO WORKFLOW PASSED" : "DEMO WORKFLOW FAILED", m_demoFails);
@@ -1097,28 +1453,70 @@ namespace editor
         const bool playing = m_play.IsPlaying();
         if (!playing)
         {
+            const bool canPlayDrill = m_hasProject && m_activeDrill >= 0 &&
+                m_activeDrill < static_cast<int>(m_project.drills.size());
+            const bool canPlayCourse = m_hasProject && !m_project.drills.empty();
+
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.16f, 0.55f, 0.30f, 1.0f));
-            if (ImGui::Button(" Play ")) { EnterPlay(); }
+            ImGui::BeginDisabled(!canPlayDrill);
+            if (ImGui::Button(" Play Drill "))
+            {
+                EnterPlay(false);
+            }
+            ImGui::EndDisabled();
             ImGui::PopStyleColor();
+            ImGui::SameLine();
+            ImGui::BeginDisabled(!canPlayCourse);
+            if (ImGui::Button(" Play Course "))
+            {
+                EnterPlay(true);
+            }
+            ImGui::EndDisabled();
         }
         else
         {
-            if (ImGui::Button(m_play.State() == PlayState::Paused ? " Resume " : " Pause "))
+            const game::GameState state = m_director ? m_director->State() : game::GameState::Playing;
+            const bool paused = state == game::GameState::Paused;
+
+            ImGui::BeginDisabled(state == game::GameState::DrillIntro);
+            if (ImGui::Button(paused ? " Resume " : " Pause "))
             {
-                m_play.TogglePause();
+                TogglePauseDirected();
             }
+            ImGui::EndDisabled();
             ImGui::SameLine();
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.2f, 0.2f, 1.0f));
             if (ImGui::Button(" Stop ")) { ExitPlay(); }
             ImGui::PopStyleColor();
             ImGui::SameLine();
-            if (ImGui::Button(" Restart "))
-            {
-                auto s = m_play.Restart();
-                if (s) { m_scene = s; eng::Engine::GetInstance().SetScene(m_scene); }
-            }
+            if (ImGui::Button(" Restart ")) { RestartPlay(); }
             ImGui::SameLine();
-            ImGui::TextColored(kGreen, "PLAY  %.1fs", m_play.PlayTimeSeconds());
+
+            std::string label;
+            ImVec4 colour = kGreen;
+            switch (state)
+            {
+            case game::GameState::DrillIntro:    label = "INTRO"; colour = kCyan; break;
+            case game::GameState::Countdown:
+            {
+                const int n = m_director ? m_director->CountdownNumber() : 0;
+                label = n > 0 ? std::to_string(n) + "..." : "GO!";
+                colour = kWarm;
+                break;
+            }
+            case game::GameState::Playing:       label = "PLAYING"; colour = kGreen; break;
+            case game::GameState::Paused:        label = "PAUSED"; colour = kWarm; break;
+            case game::GameState::DrillComplete: label = "DRILL COMPLETE"; colour = kCyan; break;
+            case game::GameState::RunComplete:   label = "RESULTS"; colour = kViolet; break;
+            default: label = "PLAYING"; break;
+            }
+            const double clock = m_director ? m_director->DrillTimeSeconds() : m_play.PlayTimeSeconds();
+            ImGui::TextColored(colour, "%s  %.1fs", label.c_str(), clock);
+            if (m_director && m_director->DrillCount() > 1)
+            {
+                ImGui::SameLine();
+                ImGui::TextDisabled("drill %zu/%zu", m_director->CurrentDrillIndex() + 1, m_director->DrillCount());
+            }
         }
 
         ImGui::SameLine(0, 24);
@@ -1772,6 +2170,30 @@ namespace editor
             if (ImGui::InputTextWithHint("Music", "audio/track.wav (project-relative)", music, sizeof(music)))
                 d.musicPath = music;
 
+            ImGui::SeparatorText("Allowed Weapons");
+            ImGui::TextDisabled("None checked = any project weapon; Play equips the first checked one.");
+            for (const auto& w : m_project.weapons)
+            {
+                ImGui::PushID(w.id.c_str());
+                bool allowed = std::find(d.allowedWeapons.begin(), d.allowedWeapons.end(), w.id)
+                    != d.allowedWeapons.end();
+                if (ImGui::Checkbox(w.name.c_str(), &allowed))
+                {
+                    if (allowed)
+                    {
+                        d.allowedWeapons.push_back(w.id);
+                    }
+                    else
+                    {
+                        d.allowedWeapons.erase(std::remove(d.allowedWeapons.begin(), d.allowedWeapons.end(), w.id),
+                            d.allowedWeapons.end());
+                    }
+                }
+                ImGui::SameLine();
+                ImGui::TextDisabled("(%s)", game::WeaponCatalog::CategoryLabel(w.category).c_str());
+                ImGui::PopID();
+            }
+
             ImGui::SeparatorText("Objectives");
             for (int k = 0; k < (int)d.objectives.size(); ++k)
             {
@@ -1882,6 +2304,7 @@ namespace editor
                 auto r = CourseProject::CreateNew(root, m_newProjectName, fresh);
                 if (r.ok)
                 {
+                    SeedDefaultAssets(root);
                     ImGui::CloseCurrentPopup();
                     OpenProject(root);
                 }

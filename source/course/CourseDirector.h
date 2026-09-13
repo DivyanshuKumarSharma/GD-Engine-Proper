@@ -40,6 +40,11 @@ namespace game
         ~CourseDirector();
 
         void Init(eng::Scene* scene, Player* player, eng::CanvasComponent* menuCanvas);
+        // Same as above, but the drill list is supplied directly instead of being
+        // read from DrillCatalog::Load() - used by tools (the editor's playtest)
+        // that already have an authored/edited drill list in memory.
+        void Init(eng::Scene* scene, Player* player, eng::CanvasComponent* menuCanvas,
+                 std::vector<DrillDefinition> drills);
         void Update(float deltaTime);
 
         // Shrink the intro / countdown / drill-complete dwells (used by the
@@ -54,6 +59,9 @@ namespace game
         void StartRun();
         void RetryRun();
         void ReturnToMenu();
+        // Jump straight to one drill's intro, skipping the main menu and every
+        // other drill - "playtest just this drill" (tools; the editor uses this).
+        void BeginDrill(std::size_t index);
 
         // Test/automation hook: instantly satisfy the active drill's objectives.
         void DebugCompleteActiveDrill();
@@ -80,7 +88,6 @@ namespace game
         void EnterState(GameState next);
         void UpdateState(float deltaTime);
 
-        void BeginDrill(std::size_t index);
         void CompleteDrill();
         void CompleteRun();
         void ResetRunState();

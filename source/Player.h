@@ -33,6 +33,7 @@ private:
 
 private:
     std::string m_configPath = "config/player.json";
+    nlohmann::json m_weaponOverride = nlohmann::json::object();
     PlayerConfig m_config;
     float m_fireCooldown = 0.0f;
 
@@ -46,4 +47,7 @@ private:
     eng::AnimationComponent* m_animationComponent = nullptr;
     eng::AudioComponent* m_audioComponent = nullptr;
     eng::PlayerControllerComponent* m_playerControllerComponent = nullptr;
+    eng::CameraComponent* m_cameraComponent = nullptr;
+    float m_baseFov = 60.0f;
+    float m_zoomBlend = 0.0f; // 0 = hip fire, 1 = fully aimed (eased, frame-rate independent)
 };

@@ -34,7 +34,7 @@ int main(int argc, char** argv)
         else if (arg == "--demo")
         {
             demo = true;
-            if (headlessFrames < 0) headlessFrames = 400;
+            if (headlessFrames < 0) headlessFrames = 1000;
         }
         else if (!arg.empty() && arg[0] != '-')
         {

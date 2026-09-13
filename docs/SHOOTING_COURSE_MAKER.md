@@ -89,19 +89,56 @@ targets: `course_tests`, `editor_tests`, `editor_workflow`).
   grip + muzzle offsets, per-slot sounds) + `WeaponCatalog` (simple original
   blockout model per category, labels). Four polished defaults.
 
+### Runtime gameplay bridge (playtesting inside the editor)
+* **`CourseDirector` wired into editor Play** (`CourseDirector::Init` gained an
+  overload that takes a drill list directly instead of reading
+  `DrillCatalog::Load()`'s hard-coded `drills/course.json`, and `BeginDrill` is
+  now public for "play just this one drill"). Play Drill / Play Course toolbar
+  buttons; the drill's own `DrillRoot` layer is stripped from the play snapshot
+  first so `DrillRunner` is the sole spawner (no duplicate targets). Real
+  intro → countdown → **Playing** → objectives → **DrillComplete** →
+  **RunComplete** (results, high-score tracking) flow, with the existing HUD
+  (crosshair, objective list, timer, results card) built by `HudView`. Esc
+  routes to the director's own Pause/Resume (which also frees the cursor so the
+  toolbar's Stop/Restart are reachable); Enter confirms/retries; the toolbar
+  shows the live state (`Countdown 3…`, `PLAYING`, `PAUSED`, `RESULTS`, …).
+* **Weapon bridge**: `WeaponCatalog::EquipModel`/`PlayerOverrideDoc` attach a
+  weapon child (the project's imported model, or a category-shaped blockout)
+  to the player and bake a `Player::LoadProperties` "weaponOverride" so the
+  drill's resolved `WeaponDef` (first of the drill's `allowedWeapons`, else the
+  project's first weapon) actually drives fire mode/rate/muzzle/zoom at
+  runtime — not just the authoring UI. A weapon's own `fireSound` is registered
+  on the player's `AudioComponent` under a stable name and used in place of the
+  default "shoot" clip.
+* **Sniper aim zoom**: holding `AimDownSights` (right mouse, new fixed action)
+  eases the camera FOV toward `1/aimZoom` — frame-rate-independent, ~90ms.
+* **New projects are playable, not just the bundled example**:
+  `CourseProject::CreateNew` now seeds a `MainPlayer` (camera + controller +
+  audio) into the generated environment (it previously had no player at all),
+  plus default `config/input.json` / `config/player.json`; `EditorApp::
+  SeedDefaultAssets` copies the checker material/texture/shaders, stock
+  jump/shoot/step sounds and a UI font from CourseMaker's own bundled assets
+  into the new project.
+* Additive engine/runtime support for the above: `CameraComponent::SetFov/GetFov`,
+  `FileSystem::GetDefaultAssetsFolder()` (the true bundled root, ignoring the
+  open project's asset-root override — used only for seeding), `WeaponConfig::
+  ApplyOverrides()` (the file-load parser refactored into a reusable overlay so
+  the same code loads `config/player.json` *and* applies the inline override).
+
 ### Verification
 | Test | What it proves | Result |
 |---|---|---|
 | `course_tests` | existing course/objective/score/drill-catalog logic still correct | **101 checks, 0 failures** |
-| `editor_tests` | project create/save/reload round-trip; drill add/reorder/duplicate/delete with order preserved; validation catches impossible configs & schema-too-new; **portable move** (copy folder, delete original, reopen); malformed-JSON handling; movement/weapon JSON round-trip; undo/redo incl. merge, redo-branch discard, dirty tracking | **94 checks, 0 failures** |
-| `editor_workflow` (`CourseMaker --demo`) | end-to-end in the real editor: open example → add circle/square/triangle targets → select → undo removes triangle / redo restores → move + undo → **Save** (files written, stack clean) → **Play** (isolated scene, clock advances) → **Stop** → authored scene object count restored | **DEMO WORKFLOW PASSED** |
-| `GameDevelopmentProject --selftest` | the original standalone course still plays through all 3 drills via real mechanics | **32 checks, 0 failures** |
+| `editor_tests` | project create/save/reload round-trip; drill add/reorder/duplicate/delete with order preserved; validation catches impossible configs & schema-too-new; **portable move**; malformed-JSON handling; movement/weapon JSON round-trip incl. `WeaponCatalog` equip/override docs; undo/redo incl. merge, redo-branch discard, dirty tracking; **a brand-new project has a spawned Player, `"camera":"MainPlayer"`, and a complete input action map** | **126 checks, 0 failures** |
+| `editor_workflow` (`CourseMaker --demo`) | end-to-end in the real editor: open example → add circle/square/triangle targets → undo/redo → move + undo → **Save** → **Play Drill** → director reaches **Playing** after a real intro+countdown → drill content spawned exactly once → **a weapon model is equipped** → a hitscan shot fired from the spawned, moving player **registers a hit on a real drill target** → completing objectives reaches **DrillComplete** → the dwell elapses into **RunComplete** with a recorded `DrillResult` and computed score → **Stop** → `CourseDirector` torn down → authored scene object count restored | **DEMO WORKFLOW PASSED (26 checks)** |
+| `GameDevelopmentProject --selftest` | the original standalone course still plays through all 3 drills via real mechanics (unaffected — the new movement/weapon bridges are opt-in) | **32 checks, 0 failures** |
 
-Measured: `CourseMaker --demo` runs the whole workflow in **3.2 s** on the dev
-machine (Windows 11, MSVC Debug build, integrated screenshot every step). The
-editor renders the 7-object environment scene into the viewport panel at 1600×900
-with no perceptible frame cost; a formal FPS capture on a large scene has not been
-done yet.
+Measured: `CourseMaker --demo` runs the whole workflow — including a full real
+intro/countdown/drill/results cycle — in **~8 s** on the dev machine (Windows 11,
+MSVC Debug build, screenshot at 5 checkpoints). The editor renders the 7-object
+environment scene (or ~16 objects mid-playtest, including HUD and drill content)
+into the viewport panel at 1600×900 with no perceptible frame cost; a formal FPS
+capture on a large scene has not been done yet.
 
 ## 4. Acceptance criteria — current state
 
@@ -113,57 +150,61 @@ done yet.
 | 4 | Place a target through the crosshair and undo it | **Done** — `PlacementTool` → undoable `CreateObjectCommand` (interactive; not yet in the headless demo) |
 | 5 | Configure & preview a diagonal moving target | **Partial** — moving-target object + inspector fields exist; the runtime component is still 2-point ping-pong, path-preview lines and playback modes pending |
 | 6 | Import an image target and a supported 3D model | **Partial** — browser + drag-drop place image/model *targets*; the copy-into-project importer with format validation is pending |
-| 7 | Configure movement speed & jump height | **Done** — Course ▸ Movement defaults (+ per-drill override) persists and is baked into the play snapshot; `PlayerControllerComponent` gained a frame-rate-independent accel model + `jumpHeight` (v=√(2gh)); `editor_tests::TestMovementModel` proves frame-rate consistency |
-| 8 | Use all four weapon categories & rebind switching | **Partial (authoring done)** — 4 categories + bindings + conflict detection in the UI and on disk; runtime weapon selection/switching bridge pending |
-| 9 | Assign custom music & distinct weapon sounds | **Partial (authoring done)** — per-drill `music` and per-weapon sound fields persist; runtime playback pending |
-| 10 | Play a drill: pause, restart, finish, results | **Partial** — Play/Pause/Restart/Stop run the selected drill (environment + its `DrillRoot`) as an isolated scene; the `CourseDirector` countdown/HUD/results flow is not yet wired into editor play |
-| 11 | Stop play and recover the unchanged scene | **Done** — `PlayController` snapshot/rebuild; `editor_workflow` asserts it |
+| 7 | Configure movement speed & jump height | **Done** — Course ▸ Movement defaults (+ per-drill override) persists and is baked into the play snapshot; `PlayerControllerComponent` gained a frame-rate-independent accel model + `jumpHeight` (v=√(2gh)); `editor_tests::TestMovementModel` proves frame-rate consistency; exercised live end-to-end by `editor_workflow` |
+| 8 | Use all four weapon categories & rebind switching | **Partial** — a drill's resolved `WeaponDef` (fire mode/rate/spread/recoil/sniper zoom/model/sound) now drives real Play-mode gameplay (`editor_workflow` fires it and confirms a hit); still missing: a multi-weapon inventory with slot switching and rebinding at runtime (today one weapon is auto-equipped per drill, and `KeyBindings`' weapon-slot entries aren't yet consumed by anything) |
+| 9 | Assign custom music & distinct weapon sounds | **Partial** — a weapon's authored `fireSound` is registered and played in place of the default clip (verified); per-drill background **music** is still authored-only, not started/stopped by the runtime |
+| 10 | Play a drill: pause, restart, finish, results | **Done** — `CourseDirector` fully wired into editor Play: real countdown, HUD/objectives/timer, Esc pause/resume, Restart, drill completion → results screen with score + high-score tracking; `editor_workflow` drives the whole state machine end to end (Playing → DrillComplete → RunComplete) and checks a `DrillResult` and final score are produced |
+| 11 | Stop play and recover the unchanged scene | **Done** — `PlayController` snapshot/rebuild, `CourseDirector` torn down; `editor_workflow` asserts both |
 | 12 | Close & reopen the project intact | **Done** — `CourseProject::Load`/`Save`; `editor_tests::TestCreateSaveReload` |
 | 13 | Move the project folder and reopen | **Done** — project-relative refs + asset-root override; `editor_tests::TestPortableMove` |
-| 14 | Useful errors for malformed data / missing assets / bad imports, no crash | **Done for data & assets** — Diagnostics panel + validation + `editor_tests::TestMalformedProject`; import errors pending with the importer |
+| 14 | Useful errors for malformed data / missing assets / bad imports, no crash | **Done for data & assets** — Diagnostics panel + validation + `editor_tests::TestMalformedProject`; a missing `MainPlayer` logs a clear error instead of silently no-opping; import errors pending with the importer |
 | 15 | Convert a `.blend` when Blender is available, explicit state when not | **Not started** |
 
 ## 5. Remaining sequence
 
 Each step keeps every executable runnable and adds a test.
 
-**Stage 2 — drill content & objectives**
-1. Drill "content layers": switching the active drill in the Course panel loads
-   that drill's `objects` into the scene under a `DrillRoot`, editable in the
-   viewport exactly like the environment; Save writes it back to the drill file.
-2. Objective editor (add/remove/reorder shoot/knock/reach/finish; pick target
-   tag/kind; live "objectives vs. placed targets" check already in `Validate`).
+Done since the first pass (was Stage 2/3 below): drill content layers, the
+objective editor, wiring `CourseDirector` into editor Play (single drill +
+whole course, countdown/pause/restart/completion/results), parameterising
+`PlayerControllerComponent` from `MovementSettings` with a frame-rate test, and
+a first weapon runtime bridge (fire mode/rate/spread/recoil/sniper zoom/model/
+distinct fire sound, auto-equipped per drill).
+
+**Next — finish the weapon & target runtime**
+1. Multi-weapon inventory on `Player`: carry every `allowedWeapon` for the
+   drill, switch with the saved `KeyBindings` slots (today only one weapon is
+   auto-equipped and slot bindings are authored but unconsumed), magazine/ammo
+   count, reload timing, an obvious active-weapon HUD indicator.
+2. Unify shot resolution so magazine/reload actually gate firing (currently
+   `Player`'s cooldown is the only gate - `WeaponDef.magazine`/`reloadSeconds`
+   are authored but not enforced) and confirm one trigger pull still can't
+   double-count a hit (re-audit `ShootingController` + the cosmetic projectile
+   path together, now that weapons vary).
 3. Extend `MovingTargetComponent`: presets (H/V/diagonal), arbitrary + multi
    waypoint paths, speed units (constant travel speed), loop / ping-pong /
    one-shot, easing, start delay, zero-length + large-`dt` guards; draw the path
    and a ghost in the viewport.
-4. Wire `CourseDirector` into editor Play for a single drill and the whole
-   course: countdown, pause, restart, completion, results overlay.
 
-**Stage 3 — movement & weapons at runtime**
-5. Parameterise `PlayerControllerComponent` (accel/decel/friction/air-control/
-   jump-height-in-metres/sensitivity) from `MovementSettings`; add a frame-rate
-   consistency test (jump apex within tolerance at 30/60/144 fps).
-6. `WeaponRuntime` built from `WeaponDef`: firing mode, fire-rate gate, spread,
-   recoil, magazine/reload, sniper zoom; unify with `ShootingController` so one
-   trigger pull = one hit = one score event; weapon switching + saved bindings.
-
-**Stage 4 — asset pipeline & audio**
-7. One import path (file pick + drag-drop) → format validation → copy into
+**Then — asset pipeline & audio**
+4. One import path (file pick + drag-drop) → format validation → copy into
    `<project>/assets/` with a stable id → editable import settings → progress /
    errors → missing-file relink. glTF/GLB + PNG/JPEG subset, tested.
-8. Optional Blender step: detect/configure a local Blender, convert `.blend` →
+5. Optional Blender step: detect/configure a local Blender, convert `.blend` →
    glTF with `--python-exit-code` and **no** auto-run of embedded scripts;
    surface unavailable/failed states; never a playback dependency.
-9. Audio: per-drill music starts at real drill start, defined pause/resume,
+6. Audio: per-drill music starts at real drill start, defined pause/resume,
    stop/transition on restart/complete/drill-change/return-to-editor; weapon
    sound pool so rapid fire doesn't cut previous shots.
 
-**Stage 5 — integration, portability, polish**
-10. Runtime opens a **project** (not the bundled course) and plays it; retire the
-    hard-coded `assets/drills/course.json` path.
-11. Full example project demonstrating every feature; default assets with
-    licenses; measured performance numbers; regression pass of all suites.
+**Finally — integration, portability, polish**
+7. Runtime opens a **project** (not the bundled course) and plays it; retire the
+   hard-coded `assets/drills/course.json` path (`CourseDirector`'s injectable-
+   drill-list overload already supports this - `Game` just needs to build a
+   `CourseProject` from a project path instead of calling `DrillCatalog::Load`).
+8. Full example project demonstrating every feature; default assets with
+   licenses beyond today's seeded checker/audio/font set; measured performance
+   numbers on a large scene; regression pass of all suites.
 
 ## 6. Build & run
 

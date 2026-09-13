@@ -13,6 +13,8 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <functional>
+#include <sstream>
 #include <iostream>
 #include <string>
 
@@ -224,11 +226,112 @@ namespace
         }
         CHECK(sawSniper);
 
-        // Blockout model is well-formed scene JSON.
+        // Blockout model is well-formed scene JSON: body + barrel + a "Muzzle"
+        // transform marker Player resolves for projectile spawn position.
         auto model = game::WeaponCatalog::BlockoutModel(weapons[0]);
         CHECK(model.contains("children"));
         CHECK(model["children"].is_array());
-        CHECK(model["children"].size() == 2);
+        CHECK(model["children"].size() == 3);
+        bool sawMuzzle = false;
+        for (const auto& child : model["children"])
+        {
+            if (child.value("name", "") == "Muzzle") sawMuzzle = true;
+        }
+        CHECK(sawMuzzle);
+
+        // PlayerOverrideDoc carries the authored fire mode/rate/zoom through to
+        // the schema Player::LoadProperties / WeaponConfig::ApplyOverrides expect.
+        auto override1 = game::WeaponCatalog::PlayerOverrideDoc(weapons[0]);
+        CHECK(override1["weaponObject"] == "Gun");
+        CHECK(override1["muzzleObject"] == "Muzzle");
+        CHECK(std::fabs(override1["fireInterval"].get<float>() - weapons[0].FireInterval()) < 1e-5f);
+        CHECK(override1["semiAuto"] == (weapons[0].fireMode != "auto"));
+
+        // EquipModel falls back to the blockout when no model is imported, and
+        // switches to a gltf reference once one is set.
+        auto equip1 = game::WeaponCatalog::EquipModel(weapons[0]);
+        CHECK(equip1.contains("children")); // blockout shape
+        game::WeaponDef withModel = weapons[0];
+        withModel.modelPath = "models/imported_smg.glb";
+        auto equip2 = game::WeaponCatalog::EquipModel(withModel);
+        CHECK(equip2.value("type", "") == "gltf");
+        CHECK(equip2.value("path", "") == "models/imported_smg.glb");
+    }
+
+    void TestNewProjectHasPlayableDefaults()
+    {
+        // A freshly created project must be playable out of the box: a spawned
+        // Player with a camera + controller, a main-camera reference, and a
+        // default input action map - not just the bundled example project.
+        auto root = MakeTempDir("new_playable");
+        game::CourseProject project;
+        auto created = game::CourseProject::CreateNew(root, "Fresh Course", project);
+        CHECK(created.ok);
+
+        const auto scenePath = root / "scenes" / "environment.sc";
+        CHECK(std::filesystem::exists(scenePath));
+        std::ifstream sceneFile(scenePath);
+        std::stringstream sceneSs;
+        sceneSs << sceneFile.rdbuf();
+        auto sceneDoc = nlohmann::json::parse(sceneSs.str());
+        CHECK(sceneDoc.value("camera", "") == "MainPlayer");
+
+        // Find MainPlayer anywhere in the tree (it's nested under "Environment").
+        std::function<const nlohmann::json*(const nlohmann::json&)> findPlayer =
+            [&](const nlohmann::json& node) -> const nlohmann::json*
+        {
+            if (node.is_object())
+            {
+                if (node.value("name", "") == "MainPlayer" && node.value("type", "") == "Player")
+                {
+                    return &node;
+                }
+                for (auto it = node.begin(); it != node.end(); ++it)
+                {
+                    if (it->is_structured())
+                    {
+                        if (auto* found = findPlayer(*it)) return found;
+                    }
+                }
+            }
+            else if (node.is_array())
+            {
+                for (const auto& item : node)
+                {
+                    if (auto* found = findPlayer(item)) return found;
+                }
+            }
+            return nullptr;
+        };
+        const nlohmann::json* player = findPlayer(sceneDoc);
+        CHECK(player != nullptr);
+        if (player)
+        {
+            bool hasCamera = false, hasController = false;
+            for (const auto& c : player->value("components", nlohmann::json::array()))
+            {
+                if (c.value("type", "") == "CameraComponent") hasCamera = true;
+                if (c.value("type", "") == "PlayerControllerComponent") hasController = true;
+            }
+            CHECK(hasCamera);
+            CHECK(hasController);
+        }
+
+        CHECK(std::filesystem::exists(root / "config" / "input.json"));
+        std::ifstream inputFile(root / "config" / "input.json");
+        std::stringstream inputSs;
+        inputSs << inputFile.rdbuf();
+        auto inputDoc = nlohmann::json::parse(inputSs.str());
+        for (const char* action : { "MoveForward", "MoveBackward", "MoveLeft", "MoveRight",
+                                    "Jump", "Fire", "AimDownSights", "Pause", "Confirm" })
+        {
+            CHECK(inputDoc["actions"].contains(action));
+        }
+
+        CHECK(std::filesystem::exists(root / "config" / "player.json"));
+
+        std::error_code ec;
+        std::filesystem::remove_all(root, ec);
     }
 
     void TestMovementModel()
@@ -339,6 +442,7 @@ namespace
 int main()
 {
     TestCreateSaveReload();
+    TestNewProjectHasPlayableDefaults();
     TestDrillCollectionOps();
     TestValidation();
     TestPortableMove();

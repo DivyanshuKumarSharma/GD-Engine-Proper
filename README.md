@@ -100,8 +100,31 @@ exist but are currently unverified.
 
 ## Status
 
-The engine is functional and the editor is a working prototype: the full
-create → build → place → configure → playtest → save → reopen loop runs, covered
-by an automated end-to-end test. Weapon switching, the asset import pipeline,
-moving-target playback modes, in-editor scored playtesting and Blender import are
-in progress — tracked in `docs/SHOOTING_COURSE_MAKER.md`.
+The engine is functional and the editor is a working prototype covered by three
+automated suites (`ctest`): pure-logic course tests, project/persistence/movement
+tests, and an end-to-end workflow that drives the real editor — open a project,
+place targets, undo/redo, save, **enter Play, let a real `CourseDirector` run
+the intro → countdown → drill → completion → results screen**, verify a hitscan
+shot fired from the spawned, moving player actually registers on a live target,
+stop, and confirm the authored scene came back untouched.
+
+Working end to end today:
+- Author an environment + any number of drills, each with its own targets,
+  objectives, movement override and allowed weapons.
+- Playtest one drill or the whole course from inside the editor: the player
+  spawns with real frame-rate-independent movement, a weapon model equipped
+  from the project's `WeaponDef`s (fire mode/rate/spread/recoil/sniper zoom, a
+  distinct sound if one's authored), the HUD/crosshair/objectives/timer, pause
+  (Esc) and resume, restart, and the drill-complete → results screen with score
+  and high-score tracking.
+- New projects are playable immediately — a spawned player, default key
+  bindings, and the default checker/audio/font assets are seeded automatically,
+  not just the bundled example.
+- Save, close, reopen, and move the whole project folder elsewhere.
+
+Still in progress (tracked in `docs/SHOOTING_COURSE_MAKER.md`): a weapon
+inventory with slot switching/rebinding/reload (today each drill equips one
+weapon automatically), the asset **import** pipeline (drag-drop placement works;
+copying an external file into the project with format validation doesn't yet),
+moving-target playback modes beyond ping-pong, per-drill music playback, and
+Blender import.

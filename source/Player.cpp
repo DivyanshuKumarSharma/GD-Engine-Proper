@@ -2,11 +2,19 @@
 #include "Bullet.h"
 
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 
 void Player::LoadProperties(const nlohmann::json& json)
 {
     m_configPath = json.value("config", m_configPath);
+    // A per-play weapon override baked into the scene JSON (the editor uses this
+    // to equip whichever WeaponDef a drill allows without touching the project's
+    // config/player.json). Absent for normally-authored scenes.
+    if (json.contains("weaponOverride") && json["weaponOverride"].is_object())
+    {
+        m_weaponOverride = json["weaponOverride"];
+    }
 }
 
 void Player::Init()
@@ -15,6 +23,10 @@ void Player::Init()
     if (!PlayerConfig::Load(m_configPath, m_config, &configError))
     {
         std::cerr << "Failed to load player configuration: " << configError << std::endl;
+    }
+    if (!m_weaponOverride.empty())
+    {
+        m_config.weapon.ApplyOverrides(m_weaponOverride);
     }
 
     for (const auto& objectName : m_config.weapon.hiddenObjectNames)
@@ -32,6 +44,11 @@ void Player::Init()
 
     m_audioComponent = GetComponent<eng::AudioComponent>();
     m_playerControllerComponent = GetComponent<eng::PlayerControllerComponent>();
+    m_cameraComponent = GetComponent<eng::CameraComponent>();
+    if (m_cameraComponent)
+    {
+        m_baseFov = m_cameraComponent->GetFov();
+    }
 
     ApplyControlFlags();
 }
@@ -81,6 +98,24 @@ void Player::Update(float deltaTime)
         {
             m_audioComponent->Stop(m_config.footstepsAudioName);
         }
+    }
+
+    // Aim-down-sights zoom: hold to narrow the FOV toward 1/aimZoomFactor of the
+    // base value. No-op (zoom factor 1) for weapons that don't define one.
+    if (m_cameraComponent && m_config.weapon.aimZoomFactor > 1.0001f)
+    {
+        const bool aiming = combatActive && input.IsActionDown("AimDownSights");
+        const float target = aiming ? 1.0f : 0.0f;
+        // Exponential ease, ~90ms time constant - frame-rate independent and
+        // snappy enough not to feel like added input lag.
+        const float rate = 1.0f - std::exp(-deltaTime / 0.09f);
+        m_zoomBlend += (target - m_zoomBlend) * rate;
+        if (std::fabs(target - m_zoomBlend) < 0.001f)
+        {
+            m_zoomBlend = target;
+        }
+        const float fov = m_baseFov / (1.0f + (m_config.weapon.aimZoomFactor - 1.0f) * m_zoomBlend);
+        m_cameraComponent->SetFov(fov);
     }
 }
 

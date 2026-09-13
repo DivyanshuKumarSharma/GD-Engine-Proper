@@ -52,16 +52,35 @@ Select an object and press **F** to frame it.
 * **Course ▸ Weapons** — four categories (Pistol, SMG, Automatic Rifle, Sniper).
   Edit fire mode, fire rate, damage, magazine, reload, spread, recoil, and (for
   snipers) aim zoom. Weapons with no imported model use a simple built-in shape.
+  In Play, hold right mouse to aim down sights — it narrows the FOV by the
+  weapon's Aim Zoom, so give a sniper something greater than 1.
+* A drill's **Allowed Weapons** (leave empty for "any project weapon") decides
+  which one you spawn with in Play; the first entry wins today — a full
+  in-play weapon switcher is next on the roadmap (`docs/SHOOTING_COURSE_MAKER.md`).
 * **Course ▸ Key Bindings** — rebind weapon slots / next / prev / reload / aim.
   A red field means two actions share a key.
 * **Course ▸ Audio mix** and each drill's **Music** field.
 
 ## Playtest
 
-Press **Play** in the toolbar to run the active drill. **Pause / Resume**,
-**Restart**, **Stop**. Play runs on a throw-away copy of the scene, so **Stop**
-restores exactly what you authored — target positions, deleted objects and all.
-Press **Esc** while playing to stop.
+Press **Play Drill** to run just the active drill, or **Play Course** to run
+every drill in order. You spawn as the player with real movement and whichever
+weapon the drill allows (first of its Allowed Weapons, or the project's first
+weapon) already equipped, muzzle and all. You get the same intro card,
+3‑2‑1‑GO countdown, HUD (objectives, timer, crosshair), and — once every
+objective is met — a results screen with your time, accuracy and score that
+the standalone course player shows, because it's the same `CourseDirector`
+running underneath.
+
+The mouse is captured for aiming while playing, so the toolbar isn't reachable
+until you pause. **Esc** pauses (and frees the cursor); press it again — or
+click **Resume** — to keep going. Click **Stop** once paused to return to
+editing, or **Restart** to rebuild the scene and start the run over from
+scratch. **Enter** confirms the results screen (retry) or skips a completion
+card's dwell.
+
+Play always runs on a throw-away copy of the scene, so **Stop** restores
+exactly what you authored — target positions, deleted objects, all of it.
 
 ## Save, share, move
 

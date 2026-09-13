@@ -22,6 +22,9 @@
     "Fire": [
       { "device": "mouse", "code": "Left" }
     ],
+    "AimDownSights": [
+      { "device": "mouse", "code": "Right" }
+    ],
     "Pause": [
       { "device": "keyboard", "code": "Escape" }
     ],

@@ -593,9 +593,35 @@ namespace game
             };
         };
 
+        // A minimal playable spawn: CameraComponent + PlayerControllerComponent
+        // (its accel/decel/friction/etc. are baked from MovementSettings at Play
+        // time - see EditorApp::PatchPlayerMovement) + audio. No weapon child:
+        // Play equips one from the project's WeaponDefs automatically.
+        nlohmann::json mainPlayer = {
+            { "name", "MainPlayer" },
+            { "type", "Player" },
+            { "config", "config/player.json" },
+            { "position", Vec3Json({ 0, 2, 10 }) },
+            { "components", nlohmann::json::array({
+                { { "type", "CameraComponent" } },
+                { { "type", "PlayerControllerComponent" },
+                  { "moveSpeed", 8.0 }, { "lookSensitivity", 15.0 }, { "jumpSpeed", 5.0 },
+                  { "collider", { { "radius", 0.4 }, { "height", 1.2 } } },
+                  { "actions", { { "forward", "MoveForward" }, { "backward", "MoveBackward" },
+                                 { "left", "MoveLeft" }, { "right", "MoveRight" }, { "jump", "Jump" } } } },
+                { { "type", "AudioListenerComponent" } },
+                { { "type", "AudioComponent" },
+                  { "audio", nlohmann::json::array({
+                      { { "name", "shoot" }, { "path", "audio/shoot.wav" } },
+                      { { "name", "step" }, { "path", "audio/step.wav" } },
+                      { { "name", "jump" }, { "path", "audio/jump.wav" } } }) } },
+            }) },
+        };
+
         nlohmann::json root = {
             { "name", "Environment" },
             { "children", nlohmann::json::array({
+                mainPlayer,
                 box("Ground", { 0, 0, 0 }, { 40, 1, 40 }, { 0.62f, 0.64f, 0.68f }, true),
                 box("WallNorth", { 0, 3, -20.5f }, { 41, 6, 1 }, { 0.5f, 0.53f, 0.58f }, true),
                 box("WallSouth", { 0, 3, 20.5f }, { 41, 6, 1 }, { 0.5f, 0.53f, 0.58f }, true),
@@ -608,11 +634,48 @@ namespace game
         };
         nlohmann::json environment = {
             { "name", project.name },
+            { "camera", "MainPlayer" },
             { "objects", nlohmann::json::array({ root }) },
         };
 
         std::string error;
         if (!WriteTextFileAtomic(project.m_paths.Resolve(project.environmentScene), environment.dump(2), &error))
+        {
+            return { false, error };
+        }
+
+        // Default action bindings (movement/fire/pause/confirm/aim) so a brand
+        // new project plays immediately, without needing to hand-author input.json.
+        nlohmann::json inputMap = {
+            { "actions", {
+                { "MoveForward", nlohmann::json::array({ { { "device", "keyboard" }, { "code", "W" } }, { { "device", "keyboard" }, { "code", "Up" } } }) },
+                { "MoveBackward", nlohmann::json::array({ { { "device", "keyboard" }, { "code", "S" } }, { { "device", "keyboard" }, { "code", "Down" } } }) },
+                { "MoveLeft", nlohmann::json::array({ { { "device", "keyboard" }, { "code", "A" } }, { { "device", "keyboard" }, { "code", "Left" } } }) },
+                { "MoveRight", nlohmann::json::array({ { { "device", "keyboard" }, { "code", "D" } }, { { "device", "keyboard" }, { "code", "Right" } } }) },
+                { "Jump", nlohmann::json::array({ { { "device", "keyboard" }, { "code", "Space" } } }) },
+                { "Fire", nlohmann::json::array({ { { "device", "mouse" }, { "code", "Left" } } }) },
+                { "AimDownSights", nlohmann::json::array({ { { "device", "mouse" }, { "code", "Right" } } }) },
+                { "Pause", nlohmann::json::array({ { { "device", "keyboard" }, { "code", "Escape" } } }) },
+                { "Confirm", nlohmann::json::array({ { { "device", "keyboard" }, { "code", "Enter" } } }) },
+            } },
+        };
+        if (!WriteTextFileAtomic(project.m_paths.Resolve("config/input.json"), inputMap.dump(2), &error))
+        {
+            return { false, error };
+        }
+
+        // Base weapon behaviour (overridden per-drill/per-weapon at Play time by
+        // Player's inline "weaponOverride" - see PatchPlayerWeapon).
+        nlohmann::json playerConfig = {
+            { "actions", { { "jump", "Jump" }, { "forward", "MoveForward" }, { "backward", "MoveBackward" },
+                           { "left", "MoveLeft" }, { "right", "MoveRight" } } },
+            { "audio", { { "jump", "jump" }, { "footsteps", "step" } } },
+            { "weapon", { { "fireAction", "Fire" }, { "fireInterval", 0.15 }, { "semiAuto", true },
+                          { "animation", "shoot" }, { "audio", "shoot" },
+                          { "weaponObject", "Gun" }, { "muzzleObject", "Muzzle" },
+                          { "hiddenObjects", nlohmann::json::array() } } },
+        };
+        if (!WriteTextFileAtomic(project.m_paths.Resolve("config/player.json"), playerConfig.dump(2), &error))
         {
             return { false, error };
         }

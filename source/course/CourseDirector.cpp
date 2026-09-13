@@ -37,11 +37,17 @@ namespace game
 
     void CourseDirector::Init(eng::Scene* scene, Player* player, eng::CanvasComponent* menuCanvas)
     {
+        Init(scene, player, menuCanvas, DrillCatalog::Load());
+    }
+
+    void CourseDirector::Init(eng::Scene* scene, Player* player, eng::CanvasComponent* menuCanvas,
+                              std::vector<DrillDefinition> drills)
+    {
         m_scene = scene;
         m_player = player;
         m_menuCanvas = menuCanvas;
 
-        m_drills = DrillCatalog::Load();
+        m_drills = std::move(drills);
         if (m_drills.empty())
         {
             log::Warn("Course", "no drills loaded - the course cannot start");

@@ -72,12 +72,54 @@ namespace game
                       { "mesh", { { "type", "box" }, { "x", 0.03f }, { "y", 0.03f }, { "z", barrelLen } } },
                       { "material", { { "path", "materials/checker.mat" }, { "params", { { "float3", darkGrey } } } } } } }) },
             };
+            // No mesh - a pure transform marker at the barrel tip so Player can
+            // resolve "muzzleObject" for projectile spawn / muzzle-flash position.
+            nlohmann::json muzzle = {
+                { "name", "Muzzle" },
+                { "position", { { "x", 0 }, { "y", bodyH * 0.15f }, { "z", -bodyLen - barrelLen } } },
+            };
 
             return {
                 { "name", childName },
                 { "position", { { "x", weapon.gripOffset.x }, { "y", weapon.gripOffset.y }, { "z", weapon.gripOffset.z } } },
                 { "scale", { { "x", weapon.modelScale }, { "y", weapon.modelScale }, { "z", weapon.modelScale } } },
-                { "children", nlohmann::json::array({ body, barrel }) },
+                { "children", nlohmann::json::array({ body, barrel, muzzle }) },
+            };
+        }
+
+        nlohmann::json EquipModel(const WeaponDef& weapon, const std::string& childName)
+        {
+            if (weapon.modelPath.empty())
+            {
+                return BlockoutModel(weapon, childName);
+            }
+
+            // An imported mesh has no guaranteed "Muzzle" node or fire animation;
+            // Player falls back to the owner's transform / no animation, which is
+            // the documented, working behaviour for a mesh-only import.
+            return {
+                { "name", childName },
+                { "type", "gltf" },
+                { "path", weapon.modelPath },
+                { "position", { { "x", weapon.gripOffset.x }, { "y", weapon.gripOffset.y }, { "z", weapon.gripOffset.z } } },
+                { "scale", { { "x", weapon.modelScale }, { "y", weapon.modelScale }, { "z", weapon.modelScale } } },
+            };
+        }
+
+        nlohmann::json PlayerOverrideDoc(const WeaponDef& weapon, const std::string& childName)
+        {
+            // "audio" (a registered AudioComponent clip *name*, not a file path)
+            // is intentionally left unset here - the caller registers the weapon's
+            // fireSound on the player's AudioComponent under a stable name (if any
+            // is authored) and sets it, since that requires editing a sibling
+            // component's doc that this function doesn't have access to.
+            return {
+                { "weaponObject", childName },
+                { "muzzleObject", "Muzzle" },
+                { "fireInterval", weapon.FireInterval() },
+                { "semiAuto", weapon.fireMode != "auto" },
+                { "aimZoomFactor", weapon.aimZoom },
+                { "hiddenObjects", nlohmann::json::array() },
             };
         }
     }

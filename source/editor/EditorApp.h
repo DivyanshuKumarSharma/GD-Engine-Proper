@@ -15,6 +15,11 @@
 #include <memory>
 #include <string>
 
+namespace game
+{
+    class CourseDirector;
+}
+
 namespace editor
 {
     using game::CourseProject;
@@ -58,6 +63,11 @@ namespace editor
         bool SaveProjectAs();
         void LoadEnvironmentScene();
         void RefreshAssets();
+        // Copies the small set of default assets (checker material + textures +
+        // shaders, placeholder weapon-tracer material, stock jump/shoot/step
+        // sounds, a UI font) a brand new project needs to actually render/play,
+        // from the assets CourseMaker ships with.
+        void SeedDefaultAssets(const std::filesystem::path& projectRoot);
 
         // Drill "content layer": the selected drill's objects live under a
         // DrillRoot object inside the working scene so they are edited exactly
@@ -79,8 +89,21 @@ namespace editor
                                const glm::vec3& oldP, const glm::quat& oldR, const glm::vec3& oldS);
 
         // ---- play ----
-        void EnterPlay();
+        // wholeCourse = false plays only the active drill (immediate individual
+        // playtesting); true runs the full course start to finish.
+        void EnterPlay(bool wholeCourse);
         void ExitPlay();
+        void RestartPlay();
+        // Pause/resume through the CourseDirector when one is running (matches
+        // the standalone game's Esc behaviour and keeps world-frozen / cursor
+        // state in sync); falls back to a plain physics pause otherwise.
+        void TogglePauseDirected();
+        // (Re)creates the CourseDirector against the current m_scene's Player and
+        // begins it - used by EnterPlay and by RestartPlay (which rebuilds the
+        // scene, so the director and its Player pointer must be rebuilt too).
+        void BeginDirectorRun(bool wholeCourse);
+        const WeaponDef* ResolveActiveWeapon() const;
+        bool LoadProjectInputMap();
 
         // ---- panels ----
         void DrawDockSpaceAndMenu();
@@ -106,6 +129,9 @@ namespace editor
         PlayController m_play;
         PlacementTool m_placement;
         AssetLibrary m_assets;
+        std::unique_ptr<game::CourseDirector> m_director;
+        bool m_lastPlayWasWholeCourse = false;
+        bool m_inputMapLoaded = false;
 
         CourseProject m_project;
         bool m_hasProject = false;
@@ -146,6 +172,7 @@ namespace editor
         bool m_demo = false;
         int m_demoStep = 0;
         int m_demoWait = 0;
+        int m_demoPollFrames = 0;
         int m_demoFails = 0;
         nlohmann::json m_demoSnapshotCheck;
     };

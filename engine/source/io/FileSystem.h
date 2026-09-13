@@ -9,6 +9,11 @@ namespace eng
     public:
         std::filesystem::path GetExecutableFolder() const;
         std::filesystem::path GetAssetsFolder() const;
+        // GetAssetsFolder() ignoring SetAssetsRootOverride - the assets this
+        // build actually ships with (source ASSETS_ROOT in a dev build, else
+        // next to the executable). Used to seed a new project's default assets
+        // regardless of which project currently has the override.
+        std::filesystem::path GetDefaultAssetsFolder() const;
 
         // Redirects every asset-relative load/save at a different root. The
         // editor points this at the open project folder so a portable project
