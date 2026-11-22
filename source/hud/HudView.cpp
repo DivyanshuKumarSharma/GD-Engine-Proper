@@ -23,7 +23,7 @@ namespace game
         const glm::vec4 kGreen(0.42f, 0.92f, 0.48f, 1.0f);
         const glm::vec4 kPanel(0.05f, 0.06f, 0.09f, 0.55f);
         const glm::vec4 kPanelStrong(0.04f, 0.05f, 0.08f, 0.72f);
-        const char* kFont = "fonts/arial.ttf";
+        const char* kFont = "fonts/OpenSans-Regular.ttf";
 
         std::string ObjectivePrefix(const Objective& objective)
         {

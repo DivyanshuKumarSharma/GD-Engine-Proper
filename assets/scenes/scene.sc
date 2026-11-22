@@ -136,7 +136,7 @@
               "name": "Text",
               "components": [
                 { "type": "TextComponent", "text": "START COURSE",
-                  "font": { "path": "fonts/arial.ttf", "size": 22 },
+                  "font": { "path": "fonts/OpenSans-Regular.ttf", "size": 22 },
                   "color": { "r": 1, "g": 1, "b": 1, "a": 1 } },
                 { "type": "RectTransformComponent",
                   "anchor": { "x": 0.5, "y": 0.5 }, "pivot": { "x": 0.5, "y": 0.5 } }
@@ -161,7 +161,7 @@
               "name": "Text",
               "components": [
                 { "type": "TextComponent", "text": "QUIT",
-                  "font": { "path": "fonts/arial.ttf", "size": 22 },
+                  "font": { "path": "fonts/OpenSans-Regular.ttf", "size": 22 },
                   "color": { "r": 1, "g": 1, "b": 1, "a": 1 } },
                 { "type": "RectTransformComponent",
                   "anchor": { "x": 0.5, "y": 0.5 }, "pivot": { "x": 0.5, "y": 0.5 } }

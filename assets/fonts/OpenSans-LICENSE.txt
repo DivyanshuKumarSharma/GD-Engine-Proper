@@ -1,0 +1,4 @@
+Open Sans Regular (OpenSans-Regular.ttf)
+Copyright 2010-2011 Google Corporation.
+Licensed under the Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
+Taken from the Bullet Physics source tree (engine/thirdparty/bullet3-3.25/examples/OpenGLWindow/OpenSans.ttf).

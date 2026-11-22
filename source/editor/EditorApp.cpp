@@ -442,7 +442,7 @@ namespace editor
             "audio/jump.wav",
             "audio/shoot.wav",
             "audio/step.wav",
-            "fonts/arial.ttf",
+            "fonts/OpenSans-Regular.ttf",
             "models/suzanne/Suzanne_BaseColor.png",
         };
 
