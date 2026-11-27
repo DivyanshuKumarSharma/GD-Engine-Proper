@@ -13,9 +13,14 @@ BVH-accelerated editor selection, editable A* navigation targets, and a real UDP
 loopback lab with prediction, interpolation, acknowledgements and packet-loss
 simulation. Optional Tracy instrumentation and Google Benchmark targets make
 the implementation measurable. Windows/Linux CI and sanitizer workflows are
-included; locally verified results are distinguished from pending Linux proof.
+included; recorded results distinguish local Windows, Linux CI and hardware checks.
 
 See [Project C implementation, experiments and limitations](docs/PROJECT_C.md).
+Download the [Windows and Linux preview builds](https://github.com/DivyanshuKumarSharma/GD-Engine-Proper/releases/tag/v2.0.0-project-c-preview.1).
+The release's [CI run](https://github.com/DivyanshuKumarSharma/GD-Engine-Proper/actions/runs/45915230921)
+passed both desktop builds, ASan, TSan (including ten stress repetitions), and
+Google Benchmark. A [four-minute demonstration guide](docs/DEMO_WALKTHROUGH.md)
+connects the implementation to the recorded evidence.
 The Windows Release build passes six CTest suites, including the real editor
 workflow. The systems suite alone performs 15,314 checks. Recorded experiments
 use an Intel x64 machine with 16 logical processors and MSVC 19.44; these are
@@ -67,7 +72,7 @@ Written from the ground up — no engine framework underneath.
 | | |
 |---|---|
 | Language | C++17 |
-| Build | CMake (≥ 3.10) |
+| Build | CMake (≥ 3.16) |
 | Graphics | OpenGL, GLFW, GLEW, GLM |
 | Physics | Bullet 3.25 |
 | Audio | miniaudio |

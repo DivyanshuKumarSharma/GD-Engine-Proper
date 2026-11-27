@@ -60,3 +60,20 @@ on Ubuntu 22.04 with GNU 11.4. The filtered logs are `linux-tsan-ci.txt` and
 `linux-asan-ci.txt`. This covers the systems library and UDP tests, not the entire
 graphical engine or an Arch hardware run. The initial desktop Linux build caught
 a pre-existing GCC default-argument compatibility error, fixed with an overload.
+
+The subsequent TSan run reported a double-lock around the timed condition-variable
+wait. The unnecessary timed idle wait was replaced with a notified predicate wait
+(see the sanitizer follow-up in `docs/PROJECT_C.md`). On commit `9c267c2`, both
+headless suites and ten consecutive TSan concurrency runs passed without warning
+suppressions. `linux-tsan-stress-ci.txt` records that follow-up from
+[CI run 45915230921](https://github.com/DivyanshuKumarSharma/GD-Engine-Proper/actions/runs/45915230921).
+ASan also passed on that commit. Earlier captures and benchmarks predate this
+wait-protocol change; they have not been relabeled as fresh measurements.
+
+The same run passed all six Linux desktop suites under Mesa/Xvfb and five hosted
+Windows suites. Excerpts: `linux-desktop-ci.txt` and `windows-desktop-ci.txt`.
+The downloaded Windows CI package also passed the real graphical editor workflow
+locally after extraction; see `windows-ci-package-editor.txt`. Both downloaded
+archives matched commit `9c267c2`, had clean source-tree manifests, and passed all
+136 file-hash checks. They are published as
+[Project C Preview 1](https://github.com/DivyanshuKumarSharma/GD-Engine-Proper/releases/tag/v2.0.0-project-c-preview.1).

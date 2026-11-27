@@ -1,0 +1,61 @@
+Source: https://github.com/DivyanshuKumarSharma/GD-Engine-Proper/actions/runs/45915230921/job/140232714833
+Commit: 9c267c2788935e134863c28de1be85add290b170
+Filtered CTest output, including ten stop-on-first-failure repetitions.
+##[group]Run ctest --test-dir build-sanitized --output-on-failure --timeout 90
+2026-11-27T00:11:14.2009831Z ctest --test-dir build-sanitized --output-on-failure --timeout 90
+2026-11-27T00:11:14.2063302Z shell: /usr/bin/bash -e {0}
+2026-11-27T00:11:14.2063507Z env:
+2026-11-27T00:11:14.2063675Z   TSAN_OPTIONS: halt_on_error=1
+2026-11-27T00:11:14.2063919Z   ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+2026-11-27T00:11:14.2064150Z ##[endgroup]
+2026-11-27T00:11:14.3451215Z Internal ctest changing into directory: /home/runner/work/GD-Engine-Proper/GD-Engine-Proper/build-sanitized
+2026-11-27T00:11:14.3452777Z Test project /home/runner/work/GD-Engine-Proper/GD-Engine-Proper/build-sanitized
+2026-11-27T00:11:14.3458186Z     Start 1: systems_tests
+2026-11-27T00:11:15.4541491Z 1/2 Test #1: systems_tests ....................   Passed    1.11 sec
+2026-11-27T00:11:15.4543194Z     Start 2: netcode_loopback
+2026-11-27T00:11:15.6985695Z 2/2 Test #2: netcode_loopback .................   Passed    0.24 sec
+2026-11-27T00:11:15.6988043Z 
+2026-11-27T00:11:15.6988187Z 100% tests passed, 0 tests failed out of 2
+2026-11-27T00:11:15.6988418Z 
+2026-11-27T00:11:15.6988513Z Label Time Summary:
+2026-11-27T00:11:15.6988800Z headless    =   1.35 sec*proc (2 tests)
+2026-11-27T00:11:15.6989114Z systems     =   1.35 sec*proc (2 tests)
+2026-11-27T00:11:15.6989304Z 
+2026-11-27T00:11:15.6989383Z Total Test time (real) =   1.35 sec
+2026-11-27T00:11:15.7043670Z ##[group]Run ctest --test-dir build-sanitized -R '^systems_tests$' --repeat until-fail:10 --output-on-failure --timeout 90
+2026-11-27T00:11:15.7044308Z ctest --test-dir build-sanitized -R '^systems_tests$' --repeat until-fail:10 --output-on-failure --timeout 90
+2026-11-27T00:11:15.7097547Z shell: /usr/bin/bash -e {0}
+2026-11-27T00:11:15.7097750Z env:
+2026-11-27T00:11:15.7097915Z   TSAN_OPTIONS: halt_on_error=1
+2026-11-27T00:11:15.7098110Z ##[endgroup]
+2026-11-27T00:11:15.7179867Z Internal ctest changing into directory: /home/runner/work/GD-Engine-Proper/GD-Engine-Proper/build-sanitized
+2026-11-27T00:11:15.7181677Z Test project /home/runner/work/GD-Engine-Proper/GD-Engine-Proper/build-sanitized
+2026-11-27T00:11:15.7185618Z     Start 1: systems_tests
+2026-11-27T00:11:16.8345061Z     Test #1: systems_tests ....................   Passed    1.12 sec
+2026-11-27T00:11:16.8345743Z     Start 1: systems_tests
+2026-11-27T00:11:17.9486164Z     Test #1: systems_tests ....................   Passed    1.11 sec
+2026-11-27T00:11:17.9486881Z     Start 1: systems_tests
+2026-11-27T00:11:19.0695998Z     Test #1: systems_tests ....................   Passed    1.12 sec
+2026-11-27T00:11:19.0696841Z     Start 1: systems_tests
+2026-11-27T00:11:20.1717154Z     Test #1: systems_tests ....................   Passed    1.10 sec
+2026-11-27T00:11:20.1718364Z     Start 1: systems_tests
+2026-11-27T00:11:21.2763754Z     Test #1: systems_tests ....................   Passed    1.10 sec
+2026-11-27T00:11:21.2765468Z     Start 1: systems_tests
+2026-11-27T00:11:22.3792190Z     Test #1: systems_tests ....................   Passed    1.10 sec
+2026-11-27T00:11:22.3792892Z     Start 1: systems_tests
+2026-11-27T00:11:23.4819372Z     Test #1: systems_tests ....................   Passed    1.10 sec
+2026-11-27T00:11:23.4820272Z     Start 1: systems_tests
+2026-11-27T00:11:24.5863985Z     Test #1: systems_tests ....................   Passed    1.10 sec
+2026-11-27T00:11:24.5864928Z     Start 1: systems_tests
+2026-11-27T00:11:25.7161037Z     Test #1: systems_tests ....................   Passed    1.13 sec
+2026-11-27T00:11:25.7161809Z     Start 1: systems_tests
+2026-11-27T00:11:26.8186791Z 1/1 Test #1: systems_tests ....................   Passed    1.10 sec
+2026-11-27T00:11:26.8190259Z 
+2026-11-27T00:11:26.8190738Z 100% tests passed, 0 tests failed out of 1
+2026-11-27T00:11:26.8190982Z 
+2026-11-27T00:11:26.8191091Z Label Time Summary:
+2026-11-27T00:11:26.8191365Z headless    =   1.10 sec*proc (1 test)
+2026-11-27T00:11:26.8191693Z systems     =   1.10 sec*proc (1 test)
+2026-11-27T00:11:26.8191898Z 
+2026-11-27T00:11:26.8192005Z Total Test time (real) =  11.10 sec
+2026-11-27T00:11:26.8252005Z

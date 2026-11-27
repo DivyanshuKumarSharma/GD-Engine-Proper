@@ -1,0 +1,26 @@
+Source: https://github.com/DivyanshuKumarSharma/GD-Engine-Proper/actions/runs/45915230921/job/140232714812
+Commit: 9c267c2788935e134863c28de1be85add290b170
+##[group]Run ctest --test-dir build-ci -C Release --output-on-failure --timeout 90 -E editor_workflow
+2026-11-27T00:16:24.1721324Z ctest --test-dir build-ci -C Release --output-on-failure --timeout 90 -E editor_workflow
+2026-11-27T00:16:24.1780218Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-11-27T00:16:24.1780502Z ##[endgroup]
+2026-11-27T00:16:25.2422706Z Test project D:/a/GD-Engine-Proper/GD-Engine-Proper/build-ci
+2026-11-27T00:16:25.2793694Z     Start 1: systems_tests
+2026-11-27T00:16:25.3370176Z 1/5 Test #1: systems_tests ....................   Passed    0.06 sec
+2026-11-27T00:16:25.3463375Z     Start 2: netcode_loopback
+2026-11-27T00:16:27.3151918Z 2/5 Test #2: netcode_loopback .................   Passed    1.97 sec
+2026-11-27T00:16:27.3156458Z     Start 3: course_tests
+2026-11-27T00:16:27.3280686Z 3/5 Test #3: course_tests .....................   Passed    0.01 sec
+2026-11-27T00:16:27.3284496Z     Start 4: editor_tests
+2026-11-27T00:16:27.4143306Z 4/5 Test #4: editor_tests .....................   Passed    0.09 sec
+2026-11-27T00:16:27.4147170Z     Start 5: gameplay_tests
+2026-11-27T00:16:27.4237733Z 5/5 Test #5: gameplay_tests ...................   Passed    0.01 sec
+2026-11-27T00:16:27.4246589Z 
+2026-11-27T00:16:27.4246800Z 100% tests passed out of 5
+2026-11-27T00:16:27.4247101Z 
+2026-11-27T00:16:27.4247450Z Label Time Summary:
+2026-11-27T00:16:27.4247811Z headless    =   2.03 sec*proc (2 tests)
+2026-11-27T00:16:27.4248109Z systems     =   2.03 sec*proc (2 tests)
+2026-11-27T00:16:27.4248265Z 
+2026-11-27T00:16:27.4248380Z Total Test time (real) =   2.18 sec
+2026-11-27T00:16:27.6840600Z

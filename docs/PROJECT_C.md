@@ -16,7 +16,7 @@ every portfolio gap is already closed.
 | Navigation | Four-neighbour A* with an admissible Manhattan heuristic; Dijkstra reference | 100 seeded random grids compared for equal path length; editable A* target grid, visible route, serialized round trip in the editor workflow. |
 | Networking | Nonblocking IPv4 UDP, explicit versioned wire format, input ACKs/retries, prediction/reconciliation, snapshot interpolation, bounded impairment queues | Real loopback sockets with 75 ms one-way latency, 20 ms jitter and 5% loss; 600 inputs acknowledged, final position error 0 in the recorded run. |
 | Profiling | Tracy zones and frame markers, CSV frame recorder, Google Benchmark target and portable benchmark runner | Windows builds and benchmark output recorded. Raw evidence is in `docs/evidence`. |
-| Delivery | Windows/Linux CI matrix, separate ASan/TSan jobs, portable ZIP packager and verified-CI draft-release workflow | Local Windows validation is available. Remote CI, Linux execution and publication must be confirmed separately. |
+| Delivery | Windows/Linux CI matrix, separate ASan/TSan jobs, portable ZIP packager and verified-CI draft-release workflow | Both desktop builds, ASan, TSan and benchmarks passed in run 45915230921. Windows and Linux preview ZIPs are published on GitHub Releases. |
 
 ## Try it
 
@@ -149,6 +149,15 @@ are not used to enforce fragile nanosecond performance thresholds.
 
 ## Packaging and release
 
+[Download Project C Preview 1](https://github.com/DivyanshuKumarSharma/GD-Engine-Proper/releases/tag/v2.0.0-project-c-preview.1).
+The published binaries come directly from successful
+[CI run 45915230921](https://github.com/DivyanshuKumarSharma/GD-Engine-Proper/actions/runs/45915230921),
+commit `9c267c2788935e134863c28de1be85add290b170`. Each package's 136 file hashes
+and source commit were verified before upload. The Windows CI package also passed
+the graphical editor workflow after extraction on the local Windows machine.
+Release asset sizes and server-provided SHA-256 digests were checked on upload.
+Later documentation commits record the results without changing those binaries.
+
 ```sh
 python tools/package_build.py --build build --config Release --output dist
 ```
@@ -172,9 +181,9 @@ itch.io account/page setup is outside the build script.
 ## Remaining proof and scope
 
 - Linux headless TSan/ASan passed in CI; the Arch ThinkCentre still needs its own hardware run.
-- Confirm the GitHub Actions runs and publish the downloadable release.
 - Record a narrated demonstration explaining job ownership, BVH tradeoffs,
-  navigation and the impaired UDP experiment in your own words.
+  navigation and the impaired UDP experiment in your own words; use
+  [the demonstration walkthrough](DEMO_WALKTHROUGH.md) as a starting point.
 - Extend the UDP lab into an authoritative multiplayer runtime only as a separate
   deliberate milestone; this preview does not add multiplayer shooting.
 - Extend streaming beyond image previews and measure useful workloads before
@@ -189,3 +198,5 @@ now uses a predicate-only wait, eliminating polling and avoiding the documented
 [GCC pthread_cond_clockwait instrumentation issue (PR101978)](https://gcc.gnu.org/pipermail/gcc-bugs/2022-July/793323.html).
 No sanitizer warning is suppressed. CI repeats the concurrency suite ten times
 with stop-on-first-failure semantics to check the revised wait protocol.
+All ten repetitions passed in run 45915230921. See
+`docs/evidence/linux-tsan-stress-ci.txt` for the recorded output.

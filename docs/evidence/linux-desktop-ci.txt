@@ -1,0 +1,31 @@
+Source: https://github.com/DivyanshuKumarSharma/GD-Engine-Proper/actions/runs/45915230921/job/140232714754
+Commit: 9c267c2788935e134863c28de1be85add290b170
+##[group]Run xvfb-run -a ctest --test-dir build-ci -C Release --output-on-failure --timeout 90
+2026-11-27T00:14:56.7931355Z xvfb-run -a ctest --test-dir build-ci -C Release --output-on-failure --timeout 90
+2026-11-27T00:14:56.7957206Z shell: /usr/bin/bash -e {0}
+2026-11-27T00:14:56.7957526Z env:
+2026-11-27T00:14:56.7957757Z   LIBGL_ALWAYS_SOFTWARE: 1
+2026-11-27T00:14:56.7958018Z ##[endgroup]
+2026-11-27T00:15:00.1690508Z Internal ctest changing into directory: /home/runner/work/GD-Engine-Proper/GD-Engine-Proper/build-ci
+2026-11-27T00:15:00.1786521Z Test project /home/runner/work/GD-Engine-Proper/GD-Engine-Proper/build-ci
+2026-11-27T00:15:00.1845329Z     Start 1: systems_tests
+2026-11-27T00:15:00.2563513Z 1/6 Test #1: systems_tests ....................   Passed    0.04 sec
+2026-11-27T00:15:00.2579924Z     Start 2: netcode_loopback
+2026-11-27T00:15:00.4685153Z 2/6 Test #2: netcode_loopback .................   Passed    0.21 sec
+2026-11-27T00:15:00.4686773Z     Start 3: course_tests
+2026-11-27T00:15:00.4725133Z 3/6 Test #3: course_tests .....................   Passed    0.00 sec
+2026-11-27T00:15:00.4729624Z     Start 4: editor_tests
+2026-11-27T00:15:00.4786780Z 4/6 Test #4: editor_tests .....................   Passed    0.01 sec
+2026-11-27T00:15:00.4787378Z     Start 5: gameplay_tests
+2026-11-27T00:15:00.4809211Z 5/6 Test #5: gameplay_tests ...................   Passed    0.00 sec
+2026-11-27T00:15:00.4809865Z     Start 6: editor_workflow
+2026-11-27T00:15:04.9674590Z 6/6 Test #6: editor_workflow ..................   Passed    4.49 sec
+2026-11-27T00:15:04.9680048Z 
+2026-11-27T00:15:04.9680466Z 100% tests passed, 0 tests failed out of 6
+2026-11-27T00:15:04.9680696Z 
+2026-11-27T00:15:04.9680897Z Label Time Summary:
+2026-11-27T00:15:04.9681198Z headless    =   0.25 sec*proc (2 tests)
+2026-11-27T00:15:04.9681503Z systems     =   0.25 sec*proc (2 tests)
+2026-11-27T00:15:04.9681679Z 
+2026-11-27T00:15:04.9681784Z Total Test time (real) =   4.79 sec
+2026-11-27T00:15:05.0078987Z
