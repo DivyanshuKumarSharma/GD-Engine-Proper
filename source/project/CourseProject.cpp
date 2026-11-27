@@ -132,6 +132,11 @@ namespace game
         };
     }
 
+    MovementSettings MovementSettings::FromJson(const nlohmann::json& json)
+    {
+        return FromJson(json, MovementSettings{});
+    }
+
     MovementSettings MovementSettings::FromJson(const nlohmann::json& json, const MovementSettings& base)
     {
         MovementSettings m = base;

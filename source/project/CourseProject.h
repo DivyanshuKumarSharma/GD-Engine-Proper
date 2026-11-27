@@ -27,7 +27,8 @@ namespace game
         float mouseSensitivity = 2.5f;  // degrees of yaw per mouse count unit
 
         nlohmann::json ToJson() const;
-        static MovementSettings FromJson(const nlohmann::json& json, const MovementSettings& base = MovementSettings());
+        static MovementSettings FromJson(const nlohmann::json& json);
+        static MovementSettings FromJson(const nlohmann::json& json, const MovementSettings& base);
         // Named feel reference points. "responsive" is the Counter-Strike-like
         // reference (snappy, low air control) - a feel target, not a simulation.
         static MovementSettings Preset(const std::string& name);

@@ -1,0 +1,17 @@
+Source: https://github.com/DivyanshuKumarSharma/GD-Engine-Proper/actions/runs/45914158897
+Commit: 038aef28970b1796c341c8778af193318832fc10
+2026-11-27T00:00:16.8310142Z Ubuntu
+2026-11-27T00:00:16.8311077Z 22.04.5
+2026-11-27T00:00:16.8315120Z Image: ubuntu-22.04
+2026-11-27T00:00:16.8319202Z Included Software: https://github.com/actions/runner-images/blob/ubuntu22/20261122.372/images/ubuntu/Ubuntu2204-Readme.md
+2026-11-27T00:00:22.7120764Z ##[group]Run cmake -S . -B build-sanitized -DGD_SYSTEMS_ONLY=ON -DGD_SANITIZER=address -DCMAKE_BUILD_TYPE=Debug
+2026-11-27T00:00:22.7121629Z [36;1mcmake -S . -B build-sanitized -DGD_SYSTEMS_ONLY=ON -DGD_SANITIZER=address -DCMAKE_BUILD_TYPE=Debug[0m
+2026-11-27T00:00:25.7895119Z -- The C compiler identification is GNU 11.4.0
+2026-11-27T00:00:27.0022080Z -- The CXX compiler identification is GNU 11.4.0
+2026-11-27T00:00:45.5897499Z   TSAN_OPTIONS: halt_on_error=1
+2026-11-27T00:00:45.5897772Z   ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+2026-11-27T00:00:46.1044956Z Test project /home/runner/work/GD-Engine-Proper/GD-Engine-Proper/build-sanitized
+2026-11-27T00:00:46.5729897Z 1/2 Test #1: systems_tests ....................   Passed    0.41 sec
+2026-11-27T00:00:46.8072806Z 2/2 Test #2: netcode_loopback .................   Passed    0.23 sec
+2026-11-27T00:00:46.8077358Z 100% tests passed, 0 tests failed out of 2
+2026-11-27T00:00:46.8079832Z Total Test time (real) =   0.70 sec

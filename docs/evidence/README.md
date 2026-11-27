@@ -55,5 +55,8 @@ with a representative physics-heavy scene are needed for a stable performance
 claim. The screenshots in `editor-main/` and `editor-worker/` are separate visual
 checks and were not taken during the final timing captures.
 
-Linux sanitizer logs and GitHub CI results must be recorded separately. Absence
-of a local Linux run is not a successful ThreadSanitizer result.
+Linux headless TSan and ASan passed in [GitHub CI run 45914158897](https://github.com/DivyanshuKumarSharma/GD-Engine-Proper/actions/runs/45914158897)
+on Ubuntu 22.04 with GNU 11.4. The filtered logs are `linux-tsan-ci.txt` and
+`linux-asan-ci.txt`. This covers the systems library and UDP tests, not the entire
+graphical engine or an Arch hardware run. The initial desktop Linux build caught
+a pre-existing GCC default-argument compatibility error, fixed with an overload.

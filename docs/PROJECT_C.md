@@ -9,7 +9,7 @@ every portfolio gap is already closed.
 
 | Area | Implementation | Verification / boundary |
 |---|---|---|
-| Concurrency | Work-stealing job pool, per-worker deques, cooperative waits, exception propagation and draining shutdown | Windows stress tests: concurrent producers, nested waits with one worker, drain and exceptions. Linux TSan is configured, not yet verified locally. |
+| Concurrency | Work-stealing job pool, per-worker deques, cooperative waits, exception propagation and draining shutdown | Windows stress tests: concurrent producers, nested waits with one worker, drain and exceptions. Linux TSan and ASan systems jobs passed in GitHub CI (GNU 11.4, Ubuntu 22.04); excerpts are in docs/evidence. |
 | Streaming | Bounded background image reads/decodes for hovered asset previews; main-thread GPU upload | Integrated into the editor. Regular synchronous scene loading remains available. This is not a complete async world-streaming system. |
 | Physics scheduling | Optional Bullet step as a job, joined before queries and callbacks | Real editor workflow passes with both paths. One exclusive Bullet world; no claim of parallel Bullet simulation or guaranteed speedup. |
 | Spatial algorithms | Median-split BVH, finite-ray slab tests, cached editor picking with local-space narrow phase | 2,000 randomized ray comparisons with brute force, boundary cases and separate build-cost measurements. Bullet already has its own DBVT. |
@@ -171,7 +171,7 @@ itch.io account/page setup is outside the build script.
 
 ## Remaining proof and scope
 
-- Confirm Linux builds and sanitizer runs on real Linux/CI before claiming them.
+- Linux headless TSan/ASan passed in CI; the Arch ThinkCentre still needs its own hardware run.
 - Confirm the GitHub Actions runs and publish the downloadable release.
 - Record a narrated demonstration explaining job ownership, BVH tradeoffs,
   navigation and the impaired UDP experiment in your own words.
