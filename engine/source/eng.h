@@ -2,9 +2,9 @@
 
 #include "Application.h"
 #include "Engine.h"
-#include "input/InputManager.h"
-#include "graphics/ShaderProgram.h"
-#include "graphics/GraphicsAPI.h"
+#include "Input/InputManager.h"
+#include "Graphics/ShaderProgram.h"
+#include "Graphics/GraphicsAPI.h"
 #include "graphics/VertexLayout.h"
 #include "graphics/Texture.h"
 #include "render/Material.h"

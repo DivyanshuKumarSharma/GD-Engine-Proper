@@ -3,6 +3,7 @@
 #include "editor/EditorCommands.h"
 #include "editor/EditorLog.h"
 #include "editor/PrimitiveFactory.h"
+#include "project/PlaySetup.h"
 #include "project/WeaponCatalog.h"
 
 #include "Bullet.h"
@@ -114,123 +115,6 @@ namespace editor
             }
             tHit = tmin;
             return true;
-        }
-
-        // Finds the MainPlayer object's doc anywhere in a scene-schema tree.
-        nlohmann::json* FindPlayerNode(nlohmann::json& node)
-        {
-            if (node.is_object())
-            {
-                if (node.value("type", "") == "Player" || node.value("name", "") == "MainPlayer")
-                {
-                    return &node;
-                }
-                for (auto& [key, value] : node.items())
-                {
-                    (void)key;
-                    if (value.is_structured())
-                    {
-                        if (auto* found = FindPlayerNode(value)) return found;
-                    }
-                }
-            }
-            else if (node.is_array())
-            {
-                for (auto& item : node)
-                {
-                    if (auto* found = FindPlayerNode(item)) return found;
-                }
-            }
-            return nullptr;
-        }
-
-        // Bakes authored movement settings into a scene-doc's Player.
-        void PatchPlayerMovement(nlohmann::json& sceneDoc, const game::MovementSettings& mv)
-        {
-            nlohmann::json* player = FindPlayerNode(sceneDoc);
-            if (!player || !player->contains("components") || !(*player)["components"].is_array())
-            {
-                return;
-            }
-            for (auto& c : (*player)["components"])
-            {
-                if (c.value("type", "") != "PlayerControllerComponent") continue;
-                c["moveModel"] = "accel";
-                c["moveSpeed"] = mv.moveSpeed;
-                c["jumpHeight"] = mv.jumpHeight;
-                c["groundAccel"] = mv.groundAccel;
-                c["groundDecel"] = mv.groundDecel;
-                c["friction"] = mv.friction;
-                c["airControl"] = mv.airControl;
-                c["lookSensitivity"] = mv.mouseSensitivity * 6.0f; // map to engine units
-                return;
-            }
-        }
-
-        // Attaches a visible weapon model to the Player and bakes a
-        // "weaponOverride" so the drill/project's authored WeaponDef (fire mode,
-        // rate, zoom, sounds) actually drives play - see Player::LoadProperties.
-        void PatchPlayerWeapon(nlohmann::json& sceneDoc, const game::WeaponDef& weapon)
-        {
-            nlohmann::json* player = FindPlayerNode(sceneDoc);
-            if (!player)
-            {
-                return;
-            }
-
-            std::string audioClipName;
-            if (!weapon.fireSound.empty() && player->contains("components") && (*player)["components"].is_array())
-            {
-                for (auto& c : (*player)["components"])
-                {
-                    if (c.value("type", "") != "AudioComponent") continue;
-                    if (!c.contains("audio") || !c["audio"].is_array()) c["audio"] = nlohmann::json::array();
-                    audioClipName = "weapon_" + weapon.id;
-                    bool exists = false;
-                    for (const auto& clip : c["audio"])
-                    {
-                        if (clip.value("name", "") == audioClipName) { exists = true; break; }
-                    }
-                    if (!exists)
-                    {
-                        c["audio"].push_back({ { "name", audioClipName }, { "path", weapon.fireSound } });
-                    }
-                    break;
-                }
-            }
-
-            nlohmann::json weaponOverride = game::WeaponCatalog::PlayerOverrideDoc(weapon);
-            if (!audioClipName.empty())
-            {
-                weaponOverride["audio"] = audioClipName;
-            }
-            (*player)["weaponOverride"] = std::move(weaponOverride);
-
-            // Replace any previously-attached weapon model so switching weapons
-            // between play sessions doesn't leave a stale one behind.
-            if (!player->contains("children") || !(*player)["children"].is_array())
-            {
-                (*player)["children"] = nlohmann::json::array();
-            }
-            auto& kids = (*player)["children"];
-            kids.erase(std::remove_if(kids.begin(), kids.end(),
-                [](const nlohmann::json& c) { return c.value("name", "") == "Gun"; }), kids.end());
-            kids.push_back(game::WeaponCatalog::EquipModel(weapon));
-        }
-
-        // Drops the editor's live drill-content layer from a scene doc. During
-        // play the CourseDirector/DrillRunner is the sole spawner of drill
-        // content (from the DrillDefinition, not a pre-baked copy) - keeping both
-        // would duplicate every target.
-        void StripDrillRoot(nlohmann::json& sceneDoc)
-        {
-            if (!sceneDoc.contains("objects") || !sceneDoc["objects"].is_array())
-            {
-                return;
-            }
-            auto& objects = sceneDoc["objects"];
-            objects.erase(std::remove_if(objects.begin(), objects.end(),
-                [](const nlohmann::json& o) { return o.value("name", "") == "DrillRoot"; }), objects.end());
         }
 
 #if defined(_WIN32)
@@ -352,6 +236,7 @@ namespace editor
         auto& fs = eng::Engine::GetInstance().GetFileSystem();
         fs.SetAssetsRootOverride(m_project.Paths().Root());
         m_inputMapLoaded = LoadProjectInputMap();
+        ApplyAudioMix();
 
         LoadEnvironmentScene();
         RefreshAssets();
@@ -389,17 +274,116 @@ namespace editor
         }
         std::stringstream ss;
         ss << file.rdbuf();
-        std::string error;
-        if (!input.LoadActionMap(ss.str(), &error))
+
+        // The Course panel's key bindings (weapon slots, next/prev, reload,
+        // aim) override the same-named actions from config/input.json.
+        nlohmann::json baseMap;
+        try
         {
-            EditorLog::Error("input", "config/input.json is invalid: " + error);
+            baseMap = nlohmann::json::parse(ss.str());
+        }
+        catch (const std::exception& e)
+        {
+            EditorLog::Error("input", std::string("config/input.json is not valid JSON: ") + e.what());
+            return false;
+        }
+        std::vector<std::string> unsupported;
+        const nlohmann::json map = game::PlaySetup::MergeInputMap(baseMap, m_project.bindings, &unsupported);
+        for (const auto& u : unsupported)
+        {
+            EditorLog::Warn("input", "Key binding '" + u + "' isn't a recognised key and will do nothing.");
+        }
+
+        std::string error;
+        if (!input.LoadActionMap(map.dump(), &error))
+        {
+            EditorLog::Error("input", "input map is invalid: " + error);
             return false;
         }
         return true;
     }
 
+    void EditorApp::PreviewSound(const std::string& projectRelativePath)
+    {
+        if (m_previewSound)
+        {
+            m_previewSound->Stop();
+        }
+        m_previewSound = eng::Audio::Load(projectRelativePath);
+        if (!m_previewSound)
+        {
+            EditorLog::Warn("audio", "Can't play '" + projectRelativePath +
+                "' - missing, not a supported format (WAV is the tested format), or no audio device.");
+            return;
+        }
+        m_previewSound->SetSpatialized(false);
+        m_previewSound->SetVolume(eng::Engine::GetInstance().GetAudioManager().GetEffectsVolume());
+        m_previewSound->Play(false);
+    }
+
+    std::string EditorApp::UniqueWeaponId(const std::string& base) const
+    {
+        std::string candidate = base;
+        int n = 2;
+        while (m_project.FindWeapon(candidate))
+        {
+            candidate = base + "-" + std::to_string(n++);
+        }
+        return candidate;
+    }
+
+    std::string EditorApp::CaptureBindingToken()
+    {
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) return "Escape";
+        for (int k = ImGuiKey_A; k <= ImGuiKey_Z; ++k)
+        {
+            if (ImGui::IsKeyPressed(static_cast<ImGuiKey>(k), false))
+                return std::string(1, static_cast<char>('A' + (k - ImGuiKey_A)));
+        }
+        for (int k = ImGuiKey_0; k <= ImGuiKey_9; ++k)
+        {
+            if (ImGui::IsKeyPressed(static_cast<ImGuiKey>(k), false))
+                return std::string(1, static_cast<char>('0' + (k - ImGuiKey_0)));
+        }
+        for (int k = ImGuiKey_F1; k <= ImGuiKey_F12; ++k)
+        {
+            if (ImGui::IsKeyPressed(static_cast<ImGuiKey>(k), false))
+                return "F" + std::to_string(1 + (k - ImGuiKey_F1));
+        }
+        static const std::pair<ImGuiKey, const char*> named[] = {
+            { ImGuiKey_Space, "Space" }, { ImGuiKey_Tab, "Tab" }, { ImGuiKey_Enter, "Enter" },
+            { ImGuiKey_LeftShift, "LeftShift" }, { ImGuiKey_RightShift, "RightShift" },
+            { ImGuiKey_LeftCtrl, "LeftCtrl" }, { ImGuiKey_RightCtrl, "RightCtrl" },
+            { ImGuiKey_LeftAlt, "LeftAlt" }, { ImGuiKey_RightAlt, "RightAlt" },
+            { ImGuiKey_CapsLock, "CapsLock" }, { ImGuiKey_GraveAccent, "Grave" },
+            { ImGuiKey_UpArrow, "Up" }, { ImGuiKey_DownArrow, "Down" },
+            { ImGuiKey_LeftArrow, "Left" }, { ImGuiKey_RightArrow, "Right" },
+        };
+        for (const auto& [key, token] : named)
+        {
+            if (ImGui::IsKeyPressed(key, false)) return token;
+        }
+        for (int b = 0; b < 5; ++b)
+        {
+            if (ImGui::IsMouseClicked(b)) return "Mouse" + std::to_string(b + 1);
+        }
+        const float wheel = ImGui::GetIO().MouseWheel;
+        if (wheel > 0.0f) return "MouseWheelUp";
+        if (wheel < 0.0f) return "MouseWheelDown";
+        return {};
+    }
+
+    void EditorApp::ApplyAudioMix()
+    {
+        auto& audio = eng::Engine::GetInstance().GetAudioManager();
+        audio.SetMasterVolume(m_project.masterVolume);
+        audio.SetMusicVolume(m_project.musicVolume);
+        audio.SetEffectsVolume(m_project.effectsVolume);
+    }
+
     void EditorApp::LoadEnvironmentScene()
     {
+        m_pickRevision = -1;
         auto& engine = eng::Engine::GetInstance();
         const auto scenePath = m_project.Paths().Resolve(m_project.environmentScene);
 
@@ -502,6 +486,7 @@ namespace editor
 
     void EditorApp::LoadActiveDrillLayer()
     {
+        m_pickRevision = -1;
         if (!m_scene)
         {
             return;
@@ -558,7 +543,7 @@ namespace editor
         // Persist the working scene as the environment shell, minus the drill
         // layer (that belongs to the drill files, not the environment).
         nlohmann::json sceneDoc = m_scene->Serialize();
-        StripDrillRoot(sceneDoc);
+        game::PlaySetup::StripDrillRoot(sceneDoc);
         const auto scenePath = m_project.Paths().Resolve(m_project.environmentScene);
         std::error_code ec;
         std::filesystem::create_directories(scenePath.parent_path(), ec);
@@ -699,20 +684,11 @@ namespace editor
     }
 
     // --------------------------------------------------------------------- play
-    const WeaponDef* EditorApp::ResolveActiveWeapon() const
+    std::vector<WeaponDef> EditorApp::ResolveLoadout() const
     {
-        if (m_activeDrill >= 0 && m_activeDrill < static_cast<int>(m_project.drills.size()))
-        {
-            const auto& allowed = m_project.drills[m_activeDrill].allowedWeapons;
-            if (!allowed.empty())
-            {
-                if (const auto* weapon = m_project.FindWeapon(allowed.front()))
-                {
-                    return weapon;
-                }
-            }
-        }
-        return m_project.weapons.empty() ? nullptr : &m_project.weapons.front();
+        const DrillDoc* drill = (m_activeDrill >= 0 && m_activeDrill < static_cast<int>(m_project.drills.size()))
+            ? &m_project.drills[m_activeDrill] : nullptr;
+        return game::PlaySetup::ResolveLoadout(m_project, drill);
     }
 
     void EditorApp::EnterPlay(bool wholeCourse)
@@ -734,30 +710,24 @@ namespace editor
 
         m_placement.Abort(m_scene.get());
         FlushActiveDrill();
-        if (!m_inputMapLoaded)
-        {
-            m_inputMapLoaded = LoadProjectInputMap();
-        }
+        // Re-read every time: key bindings may have been edited since the
+        // project was opened.
+        m_inputMapLoaded = LoadProjectInputMap();
+        ApplyAudioMix();
 
         game::MovementSettings mv = m_project.movementDefaults;
         if (m_activeDrill >= 0 && m_activeDrill < static_cast<int>(m_project.drills.size()))
         {
             mv = m_project.drills[m_activeDrill].ResolvedMovement(m_project.movementDefaults);
         }
-        const WeaponDef* weapon = ResolveActiveWeapon();
-        WeaponDef weaponCopy;
-        if (weapon) weaponCopy = *weapon;
-        const bool hasWeapon = weapon != nullptr;
+        const std::vector<WeaponDef> loadout = ResolveLoadout();
 
         auto playScene = m_play.EnterPlay(m_scene.get(),
-            [mv, hasWeapon, weaponCopy](nlohmann::json& doc)
+            [mv, loadout](nlohmann::json& doc)
             {
-                StripDrillRoot(doc);
-                PatchPlayerMovement(doc, mv);
-                if (hasWeapon)
-                {
-                    PatchPlayerWeapon(doc, weaponCopy);
-                }
+                game::PlaySetup::StripDrillRoot(doc);
+                game::PlaySetup::ApplyMovement(doc, mv);
+                game::PlaySetup::ApplyLoadout(doc, loadout);
             });
         if (!playScene)
         {
@@ -827,6 +797,7 @@ namespace editor
 
     void EditorApp::ExitPlay()
     {
+        m_pickRevision = -1;
         if (!m_play.IsPlaying())
         {
             return;
@@ -1017,6 +988,7 @@ namespace editor
         }
         case 1:
         {
+            eng::Engine::GetInstance().GetTextureManager().RequestPreview("textures/brick.png");
             const int before = CountSceneObjects(m_scene.get());
             AddObjectFromDoc(PrimitiveFactory::MakeTarget("circle", glm::vec3(0, 2, 6)), "Circle Target");
             AddObjectFromDoc(PrimitiveFactory::MakeTarget("square", glm::vec3(2.5f, 2, 6)), "Square Target");
@@ -1059,10 +1031,55 @@ namespace editor
             break;
         }
         case 5:
+        {
+            auto streamed = eng::Engine::GetInstance().GetTextureManager().RequestPreview("textures/brick.png");
+            if (!streamed && ++m_demoPollFrames < 120) { --m_demoStep; m_demoWait = 1; break; }
+            expect(streamed && streamed->GetWidth() > 0 && streamed->GetHeight() > 0,
+                "background image preview decoded and uploaded on the main thread");
+            // A moving target. Rebuilding it - which every inspector edit does -
+            // must leave the authored position alone (the old component moved
+            // the owner to point A in Init, so each load/save cycle drifted it).
+            AddObjectFromDoc(PrimitiveFactory::Make("target-moving", glm::vec3(0.0f, 2.5f, 3.0f)), "Moving Target");
+            m_demoMoverId = m_selection;
+            eng::GameObject* mover = Selected();
+            expect(mover && mover->GetComponent<game::MovingTargetComponent>(), "moving target added");
+            if (mover)
+            {
+                m_demoMoverPos = mover->GetPosition();
+                SceneEdit::Rebuild(m_scene.get(), m_demoMoverId, SceneEdit::Capture(mover));
+                eng::GameObject* rebuilt = m_scene->FindObjectById(m_demoMoverId);
+                expect(rebuilt && glm::length(rebuilt->GetPosition() - m_demoMoverPos) < 1e-4f,
+                    "rebuilding a moving target keeps its authored position (no drift)");
+            }
+
+            AddObjectFromDoc(PrimitiveFactory::Make("target-navigation", glm::vec3(-7, 2.5f, -3)), "A* Navigation Target");
+            if (auto* navigationTarget = Selected()) {
+                const auto* motion = navigationTarget->GetComponent<game::MovingTargetComponent>();
+                expect(motion && motion->Points().size() == 15, "A* target computes shortest route around grid wall");
+                const auto doc = navigationTarget->Serialize();
+                SceneEdit::Rebuild(m_scene.get(), navigationTarget->GetId(), doc);
+                expect(Selected() && Selected()->GetComponent<game::MovingTargetComponent>()->Points().size() == 15,
+                    "A* route survives serialization and reconstruction");
+            }
+
+            // Give this drill a music track (when this machine has an audio
+            // device) so play can check start / pause / resume / stop.
+            m_demoAudio = eng::Engine::GetInstance().GetAudioManager().IsInitialized();
+            if (m_demoAudio && m_activeDrill >= 0)
+            {
+                m_project.drills[m_activeDrill].musicPath = "audio/step.wav";
+            }
+
             expect(SaveProject(), "SaveProject() writes project + drills");
             expect(!m_commands.IsDirty(), "command stack is clean after save");
+            if (eng::GameObject* afterSave = m_scene->FindObjectById(m_demoMoverId))
+            {
+                expect(glm::length(afterSave->GetPosition() - m_demoMoverPos) < 1e-4f,
+                    "moving target position unchanged by save");
+            }
             m_demoWait = 2;
             break;
+        }
         case 6:
         {
             m_demoSnapshotCheck = m_scene->Serialize();
@@ -1100,32 +1117,100 @@ namespace editor
                 "drill content spawned exactly once (no duplicate from the editor's layer)");
 
             eng::GameObject* playerObject = m_scene->FindObjectByName("MainPlayer");
-            eng::GameObject* gun = playerObject ? playerObject->FindChildByName("Gun") : nullptr;
-            expect(gun != nullptr, "a weapon model is equipped on the player");
-
-            eng::GameObject* cube = m_scene->FindObjectByName("D1_Cube_C");
-            if (playerObject && std::string(playerObject->GetTypeName()) == "Player" && cube)
+            Player* player = (playerObject && std::string(playerObject->GetTypeName()) == "Player")
+                ? static_cast<Player*>(playerObject) : nullptr;
+            const game::WeaponInventory* inventory = player ? player->Inventory() : nullptr;
+            expect(inventory && inventory->Count() == m_project.weapons.size(),
+                "player spawned with the full loadout (no Allowed Weapons ticked = every project weapon)");
+            bool modelsOk = playerObject != nullptr;
+            for (std::size_t i = 0; playerObject && i < m_project.weapons.size(); ++i)
             {
-                auto* player = static_cast<Player*>(playerObject);
-                const glm::vec3 eye = player->GetWorldPosition();
-                const glm::vec3 toTarget = cube->GetWorldPosition() - eye;
-                if (glm::dot(toTarget, toTarget) > 1e-4f)
-                {
-                    player->InjectShot(eye, glm::normalize(toTarget));
-                }
+                eng::GameObject* model = playerObject->FindChildByName("Weapon_" + std::to_string(i));
+                modelsOk = modelsOk && model && (model->IsActive() == (i == 0));
             }
-            m_demoWait = 4; // let ShootingController resolve the injected shot
-            break;
-        }
-        case 9:
-            shot("play");
-            expect(m_director && m_director->Stats().hits > 0,
-                "hitscan shot fired from the spawned player registered a hit on a real drill target");
-            expect(m_director && m_director->Stats().shotsFired > 0, "shots-fired stat updated");
+            expect(modelsOk, "one model per weapon, only the active (slot 1) one visible");
+
+            if (player)
+            {
+                if (eng::GameObject* cube = m_scene->FindObjectByName("D1_Cube_C"))
+                {
+                    const glm::vec3 eye = player->GetWorldPosition();
+                    const glm::vec3 toTarget = cube->GetWorldPosition() - eye;
+                    if (glm::dot(toTarget, toTarget) > 1e-4f)
+                    {
+                        player->InjectShot(eye, glm::normalize(toTarget));
+                    }
+                }
+                // Switch to slot 2 (the SMG) and hold the trigger through the
+                // real weapon logic: draw delay, cadence, magazine, FX.
+                expect(player->SelectWeapon(1), "weapon slot 2 selected");
+                player->SimulateTrigger(1.0f);
+            }
             m_demoPollFrames = 0;
             m_demoWait = 1;
             break;
+        }
+        case 9:
+        {
+            eng::GameObject* playerObject = m_scene->FindObjectByName("MainPlayer");
+            const Player* player = playerObject ? static_cast<const Player*>(playerObject) : nullptr;
+            const game::WeaponInventory* inventory = player ? player->Inventory() : nullptr;
+            const bool fired = inventory && inventory->AmmoInMagazine() < inventory->MagazineSize() &&
+                m_director && m_director->Stats().shotsFired >= 3;
+            if (!fired && ++m_demoPollFrames < 900)
+            {
+                --m_demoStep;
+                m_demoWait = 1;
+                break;
+            }
+            shot("play");
+            expect(inventory && inventory->Active() && inventory->Active()->id == m_project.weapons[1].id,
+                "active weapon is now slot 2");
+            expect(playerObject && playerObject->FindChildByName("Weapon_1") &&
+                   playerObject->FindChildByName("Weapon_1")->IsActive() &&
+                   !playerObject->FindChildByName("Weapon_0")->IsActive(),
+                "weapon models swapped with the switch");
+            expect(fired, "holding the trigger fired the SMG through WeaponInventory (ammo spent, shots counted)");
+            expect(m_director && m_director->Stats().hits > 0,
+                "hitscan shot fired from the spawned player registered a hit on a real drill target");
+            if (eng::GameObject* mover = m_scene->FindObjectById(m_demoMoverId))
+            {
+                expect(glm::length(mover->GetPosition() - m_demoMoverPos) > 0.05f,
+                    "moving target travels along its path during play");
+            }
+            else
+            {
+                expect(false, "moving target present in the play scene");
+            }
+            if (m_demoAudio)
+            {
+                expect(m_director && m_director->Music().IsPlaying() &&
+                       m_director->Music().Current() == "audio/step.wav",
+                    "drill music started at GO");
+            }
+            m_demoWait = 2;
+            break;
+        }
         case 10:
+            TogglePauseDirected();
+            expect(m_director && m_director->State() == game::GameState::Paused, "Esc/Pause pauses the drill");
+            if (m_demoAudio)
+            {
+                expect(m_director && m_director->Music().IsPaused(), "music pauses with the game");
+            }
+            m_demoWait = 3;
+            break;
+        case 11:
+            TogglePauseDirected();
+            expect(m_director && m_director->State() == game::GameState::Playing, "resume returns to Playing");
+            if (m_demoAudio)
+            {
+                expect(m_director && m_director->Music().IsPlaying(), "music resumes (not restarted from silence)");
+            }
+            m_demoPollFrames = 0;
+            m_demoWait = 2;
+            break;
+        case 12:
         {
             // Skip straight to "all objectives met" (same debug hook the
             // standalone game's bot uses) rather than reproducing every shot -
@@ -1142,12 +1227,16 @@ namespace editor
             else
             {
                 expect(ready, "completing all objectives reached DrillComplete");
+                if (m_demoAudio)
+                {
+                    expect(m_director && !m_director->Music().IsPlaying(), "music stops when the drill completes");
+                }
                 m_demoPollFrames = 0;
             }
             m_demoWait = 1;
             break;
         }
-        case 11:
+        case 13:
         {
             // A single-drill playtest has nowhere to go after DrillComplete but
             // RunComplete once its dwell elapses - the results screen.
@@ -1168,11 +1257,11 @@ namespace editor
             m_demoWait = 2;
             break;
         }
-        case 12:
+        case 14:
             shot("results");
             m_demoWait = 2;
             break;
-        case 13:
+        case 15:
         {
             ExitPlay();
             expect(!m_play.IsPlaying(), "returned to editor");
@@ -1181,10 +1270,13 @@ namespace editor
             expect(restored.value("objects", nlohmann::json::array()).size() ==
                    m_demoSnapshotCheck.value("objects", nlohmann::json::array()).size(),
                    "authored scene object count restored after Stop");
+            eng::GameObject* mover = m_scene->FindObjectById(m_demoMoverId);
+            expect(mover && glm::length(mover->GetPosition() - m_demoMoverPos) < 1e-4f,
+                "moving target back at its authored position after Stop");
             m_demoWait = 3;
             break;
         }
-        case 14:
+        case 16:
             shot("back");
             std::printf("\n[demo] %s (%d failed checks)\n",
                 m_demoFails == 0 ? "DEMO WORKFLOW PASSED" : "DEMO WORKFLOW FAILED", m_demoFails);
@@ -1244,9 +1336,9 @@ namespace editor
             return;
         }
         ImGuiIO& io = ImGui::GetIO();
-        if (io.WantTextInput)
+        if (io.WantTextInput || !m_bindingCapture.empty())
         {
-            return;
+            return; // typing, or a key-binding capture owns the next keypress
         }
         const bool ctrl = io.KeyCtrl;
 
@@ -1533,6 +1625,12 @@ namespace editor
         ImGui::SameLine();
         ImGui::SetNextItemWidth(90);
         ImGui::DragFloat("##grid", &m_gridSize, 0.05f, 0.05f, 5.0f, "%.2f m");
+        ImGui::SameLine(0, 16);
+        ImGui::Checkbox("Paths", &m_showPaths);
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("Show moving-target paths and an animated preview of where each target will be.");
+        }
         ImGui::EndDisabled();
 
         ImGui::SameLine(0, 24);
@@ -1572,6 +1670,90 @@ namespace editor
             1.0f - ((mouse.y - imageMin.y) / m_viewportSize.y) * 2.0f);
 
         const float aspect = m_viewportSize.x / m_viewportSize.y;
+
+        // --- moving-target path preview (edit mode) ---
+        if (m_showPaths && !m_play.IsPlaying() && m_scene)
+        {
+            ImDrawList* draw = ImGui::GetWindowDrawList();
+            const glm::mat4 viewProj = m_activeCameraData.projectionMatrix * m_activeCameraData.viewMatrix;
+            const auto project = [&](const glm::vec3& world, ImVec2& out)
+            {
+                const glm::vec4 clip = viewProj * glm::vec4(world, 1.0f);
+                if (clip.w <= 0.05f)
+                {
+                    return false;
+                }
+                const glm::vec3 ndc = glm::vec3(clip) / clip.w;
+                out = ImVec2(imageMin.x + (ndc.x * 0.5f + 0.5f) * m_viewportSize.x,
+                             imageMin.y + (0.5f - ndc.y * 0.5f) * m_viewportSize.y);
+                return true;
+            };
+            const ImU32 cyan = ImGui::ColorConvertFloat4ToU32(kCyan);
+            const ImU32 violet = ImGui::ColorConvertFloat4ToU32(ImVec4(kViolet.x, kViolet.y, kViolet.z, 0.75f));
+            const ImU32 warm = ImGui::ColorConvertFloat4ToU32(kWarm);
+
+            std::function<void(eng::GameObject*)> visit = [&](eng::GameObject* obj)
+            {
+                if (auto* mover = obj->GetComponent<game::MovingTargetComponent>())
+                {
+                    const bool selected = obj->GetId() == m_selection;
+                    const glm::mat4 parentWorld = obj->GetParent() ? obj->GetParent()->GetWorldTransform() : glm::mat4(1.0f);
+                    const auto toWorld = [&](const glm::vec3& p)
+                    {
+                        const glm::vec3 local = mover->IsRelative() ? obj->GetPosition() + p : p;
+                        return glm::vec3(parentWorld * glm::vec4(local, 1.0f));
+                    };
+
+                    const auto& points = mover->Points();
+                    std::vector<ImVec2> screen;
+                    bool allVisible = !points.empty();
+                    for (const auto& p : points)
+                    {
+                        ImVec2 s;
+                        if (!project(toWorld(p), s)) { allVisible = false; break; }
+                        screen.push_back(s);
+                    }
+                    if (allVisible && screen.size() >= 2)
+                    {
+                        const bool closed = mover->Motion().Playback() == game::PathPlayback::Loop;
+                        draw->AddPolyline(screen.data(), static_cast<int>(screen.size()),
+                            selected ? cyan : violet, closed ? ImDrawFlags_Closed : ImDrawFlags_None,
+                            selected ? 2.5f : 1.5f);
+                        for (std::size_t i = 0; i < screen.size(); ++i)
+                        {
+                            draw->AddCircleFilled(screen[i], selected ? 5.0f : 3.5f, selected ? cyan : violet);
+                            if (selected)
+                            {
+                                char n[8];
+                                std::snprintf(n, sizeof(n), "%zu", i + 1);
+                                draw->AddText(ImVec2(screen[i].x + 6.0f, screen[i].y - 16.0f), cyan, n);
+                            }
+                        }
+                        // Animated marker: where the target will be, looping the preview.
+                        const auto& motion = mover->Motion();
+                        if (!motion.IsDegenerate())
+                        {
+                            const double period = std::max(0.1f, motion.PreviewPeriodSeconds());
+                            const float t = static_cast<float>(std::fmod(m_clock, period));
+                            ImVec2 s;
+                            if (project(toWorld(motion.Sample(t)), s))
+                            {
+                                draw->AddCircleFilled(s, 6.0f, warm);
+                                draw->AddCircle(s, 9.0f, warm, 0, 1.5f);
+                            }
+                        }
+                    }
+                }
+                for (const auto& child : obj->GetChildren())
+                {
+                    visit(child.get());
+                }
+            };
+            for (const auto& root : m_scene->GetRootObjects())
+            {
+                visit(root.get());
+            }
+        }
 
         // --- accept assets dropped from the browser -> start placement ---
         if (ImGui::BeginDragDropTarget())
@@ -1681,28 +1863,44 @@ namespace editor
             glm::vec3 ro, rd;
             m_camera.Ray(m_viewportCursorNdc, aspect, ro, rd);
 
+            if (m_pickRevision != m_commands.Revision()) {
+                std::vector<eng::systems::SpatialItem> items;
+                m_pickShapes.clear();
+                std::function<void(eng::GameObject*)> visit = [&](eng::GameObject* obj) {
+                    if (!obj->IsActive()) return;
+                    if (obj->GetComponent<eng::MeshComponent>()) {
+                        const auto transform = obj->GetWorldTransform();
+                        if (std::abs(glm::determinant(transform)) > 1e-8f) {
+                            const auto he = MeshHalfExtents(obj->Serialize()) + glm::vec3(.05f);
+                            eng::systems::Bounds box{glm::vec3(1e30f), glm::vec3(-1e30f)};
+                            for (int corner = 0; corner < 8; ++corner) {
+                                const auto p = glm::vec3(transform * glm::vec4(
+                                    (corner & 1) ? he.x : -he.x, (corner & 2) ? he.y : -he.y,
+                                    (corner & 4) ? he.z : -he.z, 1));
+                                box.min = glm::min(box.min, p); box.max = glm::max(box.max, p);
+                            }
+                            items.push_back({obj->GetId(), box});
+                            m_pickShapes.emplace(obj->GetId(), PickShape{glm::inverse(transform), he});
+                        }
+                    }
+                    for (const auto& child : obj->GetChildren()) visit(child.get());
+                };
+                for (const auto& root : m_scene->GetRootObjects()) visit(root.get());
+                m_pickIndex.Build(std::move(items));
+                m_pickRevision = m_commands.Revision();
+            }
             uint64_t best = 0;
             float bestT = 1e30f;
-            std::function<void(eng::GameObject*)> visit = [&](eng::GameObject* obj)
-            {
-                if (!obj->IsActive()) return;
-                if (obj->GetComponent<eng::MeshComponent>())
-                {
-                    const nlohmann::json doc = obj->Serialize();
-                    const glm::vec3 he = MeshHalfExtents(doc);
-                    const glm::mat4 inv = glm::inverse(obj->GetWorldTransform());
-                    const glm::vec3 lo = glm::vec3(inv * glm::vec4(ro, 1.0f));
-                    const glm::vec3 ld = glm::normalize(glm::vec3(inv * glm::vec4(rd, 0.0f)));
-                    float t;
-                    if (RayAabb(lo, ld, -he - glm::vec3(0.05f), he + glm::vec3(0.05f), t) && t < bestT)
-                    {
-                        bestT = t;
-                        best = obj->GetId();
-                    }
-                }
-                for (const auto& child : obj->GetChildren()) visit(child.get());
-            };
-            for (const auto& root : m_scene->GetRootObjects()) visit(root.get());
+            for (auto id : m_pickIndex.Candidates({ro, rd, 10000})) {
+                const auto& shape = m_pickShapes.at(id);
+                const auto localOrigin = glm::vec3(shape.inverse * glm::vec4(ro, 1));
+                // Keep direction unnormalized: t must remain world-ray distance
+                // even when different objects have different scales.
+                const auto localDirection = glm::vec3(shape.inverse * glm::vec4(rd, 0));
+                float t;
+                if (RayAabb(localOrigin, localDirection, -shape.halfExtents, shape.halfExtents, t) &&
+                    (t < bestT || (t == bestT && id < best))) { bestT = t; best = id; }
+            }
             Select(best);
         }
 
@@ -1905,17 +2103,154 @@ namespace editor
 
                     float impulse = comp.value("hitImpulse", 10.0f);
                     if (ImGui::DragFloat("Hit Impulse", &impulse, 0.5f, 0.0f, 200.0f)) { comp["hitImpulse"] = impulse; docChanged = true; }
+
+                    float health = comp.value("health", 0.0f);
+                    if (ImGui::DragFloat("Health", &health, 1.0f, 0.0f, 2000.0f, health <= 0.0f ? "one hit" : "%.0f"))
+                    {
+                        comp["health"] = std::max(0.0f, health);
+                        docChanged = true;
+                    }
+                    if (health > 0.0f && !m_project.weapons.empty())
+                    {
+                        std::string hits;
+                        for (const auto& w : m_project.weapons)
+                        {
+                            const int n = w.damage > 0.0f ? static_cast<int>(std::ceil(health / w.damage)) : 0;
+                            hits += (hits.empty() ? "" : "  ") + w.name + " " + std::to_string(n);
+                        }
+                        ImGui::TextDisabled("Hits to destroy: %s", hits.c_str());
+                    }
                 }
                 else if (type == "MovingTargetComponent")
                 {
-                    glm::vec3 a = JsonVec3(comp, "pointA", glm::vec3(0.0f));
-                    glm::vec3 b = JsonVec3(comp, "pointB", glm::vec3(0.0f));
+                    std::vector<glm::vec3> pts;
+                    if (comp.contains("points") && comp["points"].is_array())
+                    {
+                        for (const auto& p : comp["points"])
+                        {
+                            pts.emplace_back(p.value("x", 0.0f), p.value("y", 0.0f), p.value("z", 0.0f));
+                        }
+                    }
+                    else
+                    {
+                        pts = { JsonVec3(comp, "pointA", glm::vec3(0.0f)), JsonVec3(comp, "pointB", glm::vec3(0.0f)) };
+                    }
+                    bool pointsChanged = false;
+
+                    if (comp.contains("navigation") && comp["navigation"].is_object()) {
+                        auto& nav = comp["navigation"];
+                        ImGui::TextWrapped("A* grid (XZ). Click cells to block/unblock; green=start, violet=goal. Grid obstacles are authored navigation data, not automatic scene collision.");
+                        const int width = nav.value("width",8), height = nav.value("height",8);
+                        auto blocked = nav.value("blocked", nlohmann::json::array());
+                        auto start = nav.value("start", std::vector<int>{0,0});
+                        auto goal = nav.value("goal", std::vector<int>{7,7});
+                        if (width > 0 && width <= 16 && height > 0 && height <= 16 && start.size()==2 && goal.size()==2) {
+                            for (int y=0;y<height;++y) for (int x=0;x<width;++x) {
+                                if(x) ImGui::SameLine(0,2);
+                                const auto cell = nlohmann::json::array({x,y});
+                                auto found = std::find(blocked.begin(),blocked.end(),cell);
+                                const bool wall = found != blocked.end();
+                                const bool endpoint = (x==start[0] && y==start[1]) || (x==goal[0] && y==goal[1]);
+                                const auto colour = endpoint ? ((x==start[0] && y==start[1]) ? kGreen : kViolet) : (wall ? kRed : ImVec4(.2f,.25f,.3f,1));
+                                ImGui::PushID(y*width+x); ImGui::PushStyleColor(ImGuiCol_Button,colour);
+                                if(ImGui::Button(wall ? "#" : ".",ImVec2(22,22)) && !endpoint) {
+                                    if(wall) blocked.erase(found); else blocked.push_back(cell);
+                                    nav["blocked"]=blocked; docChanged=true;
+                                }
+                                ImGui::PopStyleColor(); ImGui::PopID();
+                            }
+                        }
+                        if(pts.empty()) ImGui::TextColored(kRed,"No route: clear a path between endpoints.");
+                        if(ImGui::Button("Convert route to editable waypoints")) { comp.erase("navigation"); docChanged=true; }
+                    }
+
+                    ImGui::BeginDisabled(comp.contains("navigation"));
+                    static float presetExtent = 3.0f;
+                    const char* presetKeys[] = { "horizontal", "vertical", "diagonal", "zigzag", "box" };
+                    const char* presetLabels[] = { "Horizontal", "Vertical", "Diagonal", "Zigzag", "Box" };
+                    ImGui::TextDisabled("Preset path");
+                    for (int i = 0; i < 5; ++i)
+                    {
+                        if (i > 0) ImGui::SameLine();
+                        if (ImGui::SmallButton(presetLabels[i]))
+                        {
+                            pts = game::PathMotion::Preset(presetKeys[i], presetExtent);
+                            comp["path"] = presetKeys[i];
+                            if (std::string(presetKeys[i]) == "box") comp["playback"] = "loop";
+                            pointsChanged = true;
+                        }
+                    }
+                    ImGui::SetNextItemWidth(120);
+                    ImGui::DragFloat("Preset size (m)", &presetExtent, 0.1f, 0.2f, 30.0f);
+
+                    ImGui::TextDisabled("Waypoints%s", comp.value("relative", true) ? " (offsets from the target)" : " (positions)");
+                    int removeAt = -1;
+                    for (int k = 0; k < static_cast<int>(pts.size()); ++k)
+                    {
+                        ImGui::PushID(k);
+                        char label[16];
+                        std::snprintf(label, sizeof(label), "#%d", k + 1);
+                        if (ImGui::DragFloat3(label, &pts[k].x, 0.05f)) pointsChanged = true;
+                        if (pts.size() > 2)
+                        {
+                            ImGui::SameLine();
+                            if (ImGui::SmallButton("x")) removeAt = k;
+                        }
+                        ImGui::PopID();
+                    }
+                    if (removeAt >= 0)
+                    {
+                        pts.erase(pts.begin() + removeAt);
+                        pointsChanged = true;
+                    }
+                    if (ImGui::SmallButton("+ Waypoint"))
+                    {
+                        pts.push_back(pts.empty() ? glm::vec3(0.0f) : pts.back() + glm::vec3(1.0f, 0.0f, 0.0f));
+                        pointsChanged = true;
+                    }
+
+                    ImGui::EndDisabled();
                     float speed = comp.value("speed", 2.0f);
+                    if (ImGui::DragFloat("Speed (m/s)", &speed, 0.05f, 0.01f, 50.0f)) { comp["speed"] = std::max(0.01f, speed); docChanged = true; }
+
+                    const char* playbacks[] = { "pingpong", "loop", "once" };
+                    const char* playbackLabels[] = { "Ping-pong", "Loop", "Once" };
+                    const game::PathPlayback pb = game::PathPlaybackFromString(comp.value("playback", std::string("pingpong")));
+                    int pbIndex = pb == game::PathPlayback::Loop ? 1 : pb == game::PathPlayback::Once ? 2 : 0;
+                    if (ImGui::Combo("Playback", &pbIndex, playbackLabels, 3)) { comp["playback"] = playbacks[pbIndex]; docChanged = true; }
+
+                    bool easing = comp.value("easing", true);
+                    if (ImGui::Checkbox("Ease into waypoints", &easing)) { comp["easing"] = easing; docChanged = true; }
+                    float delay = comp.value("startDelay", 0.0f);
+                    if (ImGui::DragFloat("Start Delay (s)", &delay, 0.05f, 0.0f, 60.0f)) { comp["startDelay"] = std::max(0.0f, delay); docChanged = true; }
                     bool rel = comp.value("relative", true);
-                    if (ImGui::DragFloat3("Point A", &a.x, 0.05f)) { comp["pointA"] = { {"x",a.x},{"y",a.y},{"z",a.z} }; docChanged = true; }
-                    if (ImGui::DragFloat3("Point B", &b.x, 0.05f)) { comp["pointB"] = { {"x",b.x},{"y",b.y},{"z",b.z} }; docChanged = true; }
-                    if (ImGui::DragFloat("Speed (m/s)", &speed, 0.05f, 0.0f, 50.0f)) { comp["speed"] = speed; docChanged = true; }
-                    if (ImGui::Checkbox("Relative to spawn", &rel)) { comp["relative"] = rel; docChanged = true; }
+                    if (ImGui::Checkbox("Points relative to target", &rel)) { comp["relative"] = rel; docChanged = true; }
+
+                    game::PathMotion probe;
+                    probe.Configure(pts, game::PathPlaybackFromString(comp.value("playback", std::string("pingpong"))),
+                        comp.value("speed", 2.0f), comp.value("easing", true), comp.value("startDelay", 0.0f));
+                    if (probe.IsDegenerate())
+                    {
+                        ImGui::TextColored(kWarm, "Path has no length (or speed is 0) - the target will stay still.");
+                    }
+                    else
+                    {
+                        ImGui::TextDisabled("Path %.2f m   cycle %.2f s   (speed = constant travel speed)",
+                            probe.Length(), probe.CycleSeconds());
+                    }
+
+                    if (pointsChanged)
+                    {
+                        nlohmann::json arr = nlohmann::json::array();
+                        for (const auto& p : pts)
+                        {
+                            arr.push_back({ { "x", p.x }, { "y", p.y }, { "z", p.z } });
+                        }
+                        comp["points"] = arr;
+                        comp.erase("pointA");
+                        comp.erase("pointB");
+                        docChanged = true;
+                    }
                 }
                 else if (type == "LightComponent" && comp.contains("color"))
                 {
@@ -1978,6 +2313,15 @@ namespace editor
                 ImGui::PushID(entry->relativePath.c_str());
                 const bool selectable = ImGui::Selectable(entry->name.c_str(), false,
                     ImGuiSelectableFlags_AllowDoubleClick);
+                if (entry->type == AssetType::Image && ImGui::IsItemHovered()) {
+                    ImGui::BeginTooltip();
+                    auto preview = eng::Engine::GetInstance().GetTextureManager().RequestPreview(entry->relativePath);
+                    if (preview) {
+                        const float width = 160.0f;
+                        ImGui::Image(static_cast<ImTextureID>(preview->GetID()), ImVec2(width, width * preview->GetHeight() / preview->GetWidth()));
+                    } else ImGui::TextUnformatted("Loading preview (unsupported images have no preview)");
+                    ImGui::EndTooltip();
+                }
 
                 if (ImGui::BeginDragDropSource())
                 {
@@ -2043,18 +2387,35 @@ namespace editor
             if (ImGui::Button("Reset movement to Responsive")) { mv = MovementSettings::Preset("responsive"); }
 
             ImGui::SeparatorText("Audio mix");
-            ImGui::SliderFloat("Master", &m_project.masterVolume, 0.0f, 1.0f);
-            ImGui::SliderFloat("Music", &m_project.musicVolume, 0.0f, 1.0f);
-            ImGui::SliderFloat("Effects", &m_project.effectsVolume, 0.0f, 1.0f);
+            bool mixChanged = false;
+            mixChanged |= ImGui::SliderFloat("Master", &m_project.masterVolume, 0.0f, 1.0f);
+            mixChanged |= ImGui::SliderFloat("Music", &m_project.musicVolume, 0.0f, 1.0f);
+            mixChanged |= ImGui::SliderFloat("Effects", &m_project.effectsVolume, 0.0f, 1.0f);
+            if (mixChanged)
+            {
+                ApplyAudioMix(); // live, so a preview / running playtest reflects it
+            }
         }
 
         if (ImGui::CollapsingHeader("Weapons", ImGuiTreeNodeFlags_DefaultOpen))
         {
+            ImGui::TextDisabled("Drills spawn with their Allowed Weapons in this order (slot 1, 2, ...).");
+            int removeWeapon = -1;
+            int duplicateWeapon = -1;
             for (size_t i = 0; i < m_project.weapons.size(); ++i)
             {
                 auto& w = m_project.weapons[i];
                 ImGui::PushID((int)i);
-                if (ImGui::TreeNode(w.name.c_str()))
+                const std::string header = std::to_string(i + 1) + "  " + w.name + "    " +
+                    game::WeaponCatalog::CategoryLabel(w.category) + ", " + game::WeaponCatalog::FireModeLabel(w.fireMode);
+                const bool open = ImGui::TreeNode("##weapon", "%s", header.c_str());
+                if (ImGui::BeginPopupContextItem())
+                {
+                    if (ImGui::MenuItem("Duplicate")) duplicateWeapon = (int)i;
+                    if (ImGui::MenuItem("Delete", nullptr, false, m_project.weapons.size() > 1)) removeWeapon = (int)i;
+                    ImGui::EndPopup();
+                }
+                if (open)
                 {
                     char nm[64]; std::snprintf(nm, sizeof(nm), "%s", w.name.c_str());
                     if (ImGui::InputText("Name", nm, sizeof(nm))) w.name = nm;
@@ -2066,8 +2427,9 @@ namespace editor
                         (void*)&cats, (int)cats.size())) w.category = cats[cat];
 
                     const char* modes[] = { "semi", "auto", "burst" };
+                    const char* modeLabels[] = { "Semi-automatic", "Full-automatic", "3-round burst" };
                     int fm = 0; for (int k = 0; k < 3; ++k) if (w.fireMode == modes[k]) fm = k;
-                    if (ImGui::Combo("Fire Mode", &fm, modes, 3)) w.fireMode = modes[fm];
+                    if (ImGui::Combo("Fire Mode", &fm, modeLabels, 3)) w.fireMode = modes[fm];
 
                     ImGui::DragFloat("Fire Rate (rpm)", &w.fireRateRpm, 5.0f, 20.0f, 1400.0f);
                     ImGui::DragFloat("Damage", &w.damage, 1.0f, 1.0f, 500.0f);
@@ -2075,25 +2437,127 @@ namespace editor
                     ImGui::DragFloat("Reload (s)", &w.reloadSeconds, 0.05f, 0.1f, 10.0f);
                     ImGui::DragFloat("Spread (deg)", &w.spreadDegrees, 0.02f, 0.0f, 15.0f);
                     ImGui::DragFloat("Recoil", &w.recoil, 0.02f, 0.0f, 8.0f);
-                    if (w.category == "sniper")
-                        ImGui::DragFloat("Aim Zoom", &w.aimZoom, 0.1f, 1.0f, 12.0f);
-                    ImGui::TextDisabled("shot interval: %.3f s", w.FireInterval());
+                    ImGui::DragFloat("Aim Zoom", &w.aimZoom, 0.05f, 1.0f, 12.0f, w.aimZoom <= 1.0f ? "none" : "%.1fx");
+                    ImGui::TextDisabled("%.3f s/shot   %.0f dmg/s   %.1f s to empty a magazine",
+                        w.FireInterval(), w.damage / std::max(0.001f, w.FireInterval()),
+                        w.magazine * w.FireInterval());
+
+                    ImGui::SeparatorText("Model");
+                    const auto assetDrop = [](std::string& target, AssetType wantType, const AssetLibrary& assets)
+                    {
+                        if (ImGui::BeginDragDropTarget())
+                        {
+                            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_PATH"))
+                            {
+                                const std::string rel(static_cast<const char*>(payload->Data), payload->DataSize);
+                                const AssetEntry* entry = assets.Find(rel);
+                                if (entry && entry->type == wantType) target = rel;
+                            }
+                            ImGui::EndDragDropTarget();
+                        }
+                    };
+                    char model[256]; std::snprintf(model, sizeof(model), "%s", w.modelPath.c_str());
+                    if (ImGui::InputTextWithHint("Model", "blank = built-in shape (drag a .gltf/.glb here)", model, sizeof(model)))
+                        w.modelPath = model;
+                    assetDrop(w.modelPath, AssetType::Model, m_assets);
+                    ImGui::DragFloat("Model Scale", &w.modelScale, 0.01f, 0.01f, 20.0f);
+                    ImGui::DragFloat3("Grip Offset", &w.gripOffset.x, 0.01f);
+                    ImGui::DragFloat3("Muzzle Offset", &w.muzzleOffset.x, 0.01f);
+                    ImGui::TextDisabled("Imported meshes don't bring fire/reload animation - the model dips and\n"
+                                        "kicks procedurally instead, and fires from the player's view.");
+
+                    ImGui::SeparatorText("Sounds");
+                    const auto soundField = [&](const char* label, std::string& path)
+                    {
+                        ImGui::PushID(label);
+                        char buf[256]; std::snprintf(buf, sizeof(buf), "%s", path.c_str());
+                        ImGui::SetNextItemWidth(-60);
+                        if (ImGui::InputTextWithHint(label, "blank = default (drag a .wav here)", buf, sizeof(buf)))
+                            path = buf;
+                        assetDrop(path, AssetType::Audio, m_assets);
+                        ImGui::SameLine();
+                        ImGui::BeginDisabled(path.empty());
+                        if (ImGui::SmallButton("Play")) PreviewSound(path);
+                        ImGui::EndDisabled();
+                        ImGui::PopID();
+                    };
+                    soundField("Fire", w.fireSound);
+                    soundField("Reload", w.reloadSound);
+                    soundField("Empty", w.emptySound);
                     ImGui::TreePop();
                 }
                 ImGui::PopID();
+            }
+
+            if (duplicateWeapon >= 0)
+            {
+                WeaponDef copy = m_project.weapons[duplicateWeapon];
+                copy.name += " Copy";
+                copy.id = UniqueWeaponId(copy.id);
+                m_project.weapons.insert(m_project.weapons.begin() + duplicateWeapon + 1, copy);
+            }
+            if (removeWeapon >= 0)
+            {
+                const std::string goneId = m_project.weapons[removeWeapon].id;
+                m_project.weapons.erase(m_project.weapons.begin() + removeWeapon);
+                for (auto& d : m_project.drills)
+                {
+                    d.allowedWeapons.erase(std::remove(d.allowedWeapons.begin(), d.allowedWeapons.end(), goneId),
+                        d.allowedWeapons.end());
+                }
+                EditorLog::Info("weapons", "Deleted weapon '" + goneId + "' (and removed it from every drill's allowed list).");
+            }
+            if (ImGui::Button("+ Add Weapon"))
+            {
+                WeaponDef fresh = WeaponDef::Defaults().front();
+                fresh.name = "New Weapon";
+                fresh.id = UniqueWeaponId("weapon");
+                m_project.weapons.push_back(fresh);
             }
         }
 
         if (ImGui::CollapsingHeader("Key Bindings", ImGuiTreeNodeFlags_DefaultOpen))
         {
+            ImGui::TextDisabled("Click a binding, then press a key, mouse button or scroll (Esc cancels).");
             auto conflicts = m_project.bindings.Conflicts();
             for (auto& e : m_project.bindings.entries)
             {
-                char buf[32]; std::snprintf(buf, sizeof(buf), "%s", e.second.c_str());
+                ImGui::PushID(e.first.c_str());
                 const bool bad = std::find(conflicts.begin(), conflicts.end(), e.first) != conflicts.end();
-                if (bad) ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.4f, 0.15f, 0.15f, 1.0f));
-                if (ImGui::InputText(e.first.c_str(), buf, sizeof(buf))) e.second = buf;
-                if (bad) ImGui::PopStyleColor();
+                const bool unknown = !e.second.empty() && game::KeyBindings::TokenToInputBinding(e.second).is_null();
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextUnformatted(e.first.c_str());
+                ImGui::SameLine(150);
+                const bool capturing = m_bindingCapture == e.first;
+                if (bad || unknown) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.45f, 0.16f, 0.16f, 1.0f));
+                if (capturing) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f, 0.45f, 0.55f, 1.0f));
+                const std::string label = capturing ? std::string("press a key...")
+                    : (e.second.empty() ? std::string("(unbound)") : e.second);
+                if (ImGui::Button(label.c_str(), ImVec2(150, 0)))
+                {
+                    m_bindingCapture = e.first;
+                    m_bindingCaptureFrame = ImGui::GetFrameCount();
+                }
+                if (capturing) ImGui::PopStyleColor();
+                if (bad || unknown) ImGui::PopStyleColor();
+                if (unknown && ImGui::IsItemHovered()) ImGui::SetTooltip("'%s' isn't a recognised key.", e.second.c_str());
+                ImGui::SameLine();
+                if (ImGui::SmallButton("clear")) e.second.clear();
+                ImGui::PopID();
+            }
+            if (!m_bindingCapture.empty() && ImGui::GetFrameCount() > m_bindingCaptureFrame)
+            {
+                const std::string token = CaptureBindingToken();
+                if (token == "Escape")
+                {
+                    m_bindingCapture.clear();
+                }
+                else if (!token.empty())
+                {
+                    m_project.bindings.Set(m_bindingCapture, token);
+                    EditorLog::Info("input", m_bindingCapture + " bound to " + token + ".");
+                    m_bindingCapture.clear();
+                }
             }
             if (!conflicts.empty())
             {

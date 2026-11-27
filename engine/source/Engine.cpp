@@ -7,6 +7,9 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
+#include <cstdlib>
+#include "systems/Profiler.h"
+#include "systems/FrameRecorder.h"
 
 namespace eng
 {
@@ -46,6 +49,11 @@ namespace eng
         inputManager.SetMousePositionCurrent(currentPos);
 
         inputManager.SetMousePositionChanged(true);
+    }
+
+    void scrollCallback(GLFWwindow* window, double /*xoffset*/, double yoffset)
+    {
+        eng::Engine::GetInstance().GetInputManager().AddScroll(static_cast<float>(yoffset));
     }
 
     void windowSizeCallback(GLFWwindow* window, int width, int height)
@@ -94,6 +102,7 @@ namespace eng
         glfwSetKeyCallback(m_window, keyCallback);
         glfwSetMouseButtonCallback(m_window, mouseButtonCallback);
         glfwSetCursorPosCallback(m_window, cursorPositionCallback);
+        glfwSetScrollCallback(m_window, scrollCallback);
         glfwSetWindowSizeCallback(m_window, windowSizeCallback);
 
         glfwMakeContextCurrent(m_window);
@@ -110,6 +119,7 @@ namespace eng
         m_audioManager.Init();
         m_rederQueue.Init();
         m_fontManager.Init();
+        m_applicationStarted = true;
         return m_application->Init();
     }
 
@@ -121,9 +131,16 @@ namespace eng
         }
 
         m_lastTimePoint = std::chrono::steady_clock::now();
+        systems::FrameRecorder frames;
+        const char* capturePath = std::getenv("GD_FRAME_CSV");
+        const char* limitText = std::getenv("GD_FRAME_LIMIT");
+        const int frameLimit = limitText ? std::max(0, std::atoi(limitText)) : 0;
+        int frameCount = 0;
 
         while (!glfwWindowShouldClose(m_window) && !m_application->NeedsToBeClosed())
         {
+            GD_ZONE("Engine frame");
+            const auto frameStart = std::chrono::steady_clock::now();
             glfwPollEvents();
 
             auto now = std::chrono::steady_clock::now();
@@ -137,7 +154,7 @@ namespace eng
                 m_uiInputSystem.Update(deltaTime);
             }
 
-            m_application->Update(deltaTime);
+            { GD_ZONE("Application update"); m_application->Update(deltaTime); }
 
             int width = 0;
             int height = 0;
@@ -191,7 +208,7 @@ namespace eng
                 lights = m_currentScene->CollectLights();
             }
 
-            m_rederQueue.Draw(m_graphicsAPI, cameraData, lights);
+            { GD_ZONE("Scene render"); m_rederQueue.Draw(m_graphicsAPI, cameraData, lights); }
 
             if (usingRenderTarget)
             {
@@ -204,17 +221,27 @@ namespace eng
             glfwSwapBuffers(m_window);
 
             m_inputManager.ClearStates();
+            if (capturePath) frames.Add(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - frameStart).count());
+            GD_FRAME();
+            if (frameLimit > 0 && ++frameCount >= frameLimit) break;
         }
-
-        m_application.reset(nullptr);
+        if (capturePath) {
+            try { frames.Write(capturePath); }
+            catch (const std::exception& e) { std::cerr << e.what() << std::endl; }
+        }
     }
 
     void Engine::Destroy()
     {
         if (m_application)
         {
-            m_application->Destroy();
+            m_jobs.WaitIdle();
+            if (m_applicationStarted) m_application->Destroy();
+            m_applicationStarted = false;
             m_application.reset();
+            m_currentScene.reset();
+            m_textureManager.Clear();
+            m_fontManager.Clear();
             glfwTerminate();
             m_window = nullptr;
         }

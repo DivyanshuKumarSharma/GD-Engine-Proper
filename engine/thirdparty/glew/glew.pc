@@ -1,6 +1,6 @@
-prefix=C:/Program Files/GameDevelopmentProject
+prefix=C:/Program Files (x86)/GameDevelopmentProject
 exec_prefix=${prefix}
-libdir=C:/Program Files/GameDevelopmentProject/lib
+libdir=C:/Program Files (x86)/GameDevelopmentProject/lib
 includedir=${prefix}/include
 
 Name: glew

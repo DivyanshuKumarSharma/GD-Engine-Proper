@@ -61,7 +61,7 @@ namespace game
                 { "position", { { "x", 0 }, { "y", 0 }, { "z", -bodyLen * 0.5f } } },
                 { "components", nlohmann::json::array({
                     { { "type", "MeshComponent" },
-                      { "mesh", { { "type", "box" }, { "x", 0.06f }, { "y", bodyH }, { "z", bodyLen } } },
+                      { "mesh", { { "type", "box" }, { "x", 0.045f }, { "y", bodyH * 0.85f }, { "z", bodyLen } } },
                       { "material", { { "path", "materials/checker.mat" }, { "params", { { "float3", grey } } } } } } }) },
             };
             nlohmann::json barrel = {

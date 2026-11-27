@@ -1,6 +1,6 @@
 #pragma once
-#include "input/InputManager.h"
-#include "graphics/GraphicsAPI.h"
+#include "Input/InputManager.h"
+#include "Graphics/GraphicsAPI.h"
 #include "graphics/Texture.h"
 #include "render/RenderQueue.h"
 #include "scene/Scene.h"
@@ -9,6 +9,7 @@
 #include "audio/AudioManager.h"
 #include "font/FontManager.h"
 #include "scene/components/ui/UIInputSystem.h"
+#include "systems/JobSystem.h"
 
 #include <memory>
 #include <chrono>
@@ -47,6 +48,7 @@ namespace eng
         AudioManager& GetAudioManager();
         FontManager& GetFontManager();
         UIInputSystem& GetUIInputSystem();
+        systems::JobSystem& GetJobs() { return m_jobs; }
 
         void SetScene(const std::shared_ptr<Scene>& scene);
         const std::shared_ptr<Scene>& GetScene();
@@ -63,6 +65,8 @@ namespace eng
         void SetCameraOverride(const CameraData* camera) { m_cameraOverride = camera; }
 
     private:
+        systems::JobSystem m_jobs;
+        bool m_applicationStarted = false;
         std::unique_ptr<Application> m_application;
         Framebuffer* m_sceneRenderTarget = nullptr;
         const CameraData* m_cameraOverride = nullptr;

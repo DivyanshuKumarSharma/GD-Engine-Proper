@@ -2,6 +2,8 @@
 #define MINIAUDIO_IMPLEMENTATION
 #include <miniaudio.h>
 
+#include <algorithm>
+
 namespace eng
 {
     AudioManager::AudioManager()
@@ -11,7 +13,7 @@ namespace eng
 
     AudioManager::~AudioManager()
     {
-        if (m_engine)
+        if (m_engine && m_initialized)
         {
             ma_engine_uninit(m_engine.get());
         }
@@ -20,7 +22,31 @@ namespace eng
     bool AudioManager::Init()
     {
         auto result = ma_engine_init(nullptr, m_engine.get());
-        return result == MA_SUCCESS;
+        m_initialized = result == MA_SUCCESS;
+        if (m_initialized)
+        {
+            ma_engine_set_volume(m_engine.get(), m_masterVolume);
+        }
+        return m_initialized;
+    }
+
+    void AudioManager::SetMasterVolume(float volume)
+    {
+        m_masterVolume = std::clamp(volume, 0.0f, 1.0f);
+        if (m_initialized)
+        {
+            ma_engine_set_volume(m_engine.get(), m_masterVolume);
+        }
+    }
+
+    void AudioManager::SetEffectsVolume(float volume)
+    {
+        m_effectsVolume = std::clamp(volume, 0.0f, 1.0f);
+    }
+
+    void AudioManager::SetMusicVolume(float volume)
+    {
+        m_musicVolume = std::clamp(volume, 0.0f, 1.0f);
     }
 
     ma_engine* AudioManager::GetEngine()

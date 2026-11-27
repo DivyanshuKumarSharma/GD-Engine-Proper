@@ -177,6 +177,7 @@ namespace game
         {
         case GameState::MainMenu:
         {
+            m_music.Stop();
             if (m_menuCanvas) { m_menuCanvas->SetActive(true); }
             SetMenuInputActive(true);
             if (m_player) { m_player->SetControlEnabled(false); }
@@ -235,11 +236,18 @@ namespace game
             m_runTimer.Start();          // resume; accumulates across the whole run
             m_drillCompletePending = false;
 
+            // Music starts at GO - the actual drill start, not the intro card.
+            if (const DrillDefinition* definition = CurrentDrill())
+            {
+                m_music.Play(definition->musicPath);
+            }
+
             log::Info("Drill", "GO");
             break;
         }
         case GameState::DrillComplete:
         {
+            m_music.Stop();
             m_drillTimer.Stop();
             m_runTimer.Stop();
             m_shooting->SetEnabled(false);
@@ -380,6 +388,7 @@ namespace game
     {
         m_state = GameState::RunComplete;
 
+        m_music.Stop();
         m_runTimer.Stop();
         m_shooting->SetEnabled(false);
         if (m_player) { m_player->SetControlEnabled(false); }
@@ -432,6 +441,7 @@ namespace game
 
     void CourseDirector::ResetRunState()
     {
+        m_music.Stop();
         m_runner->End();
         m_stats.Reset();
         m_statsAtDrillStart.Reset();
@@ -449,6 +459,7 @@ namespace game
         if (m_state == GameState::Playing)
         {
             m_state = GameState::Paused;
+            m_music.Pause();
             m_drillTimer.Stop();
             m_runTimer.Stop();
             m_shooting->SetEnabled(false);
@@ -460,6 +471,7 @@ namespace game
         else if (m_state == GameState::Paused)
         {
             m_state = GameState::Playing;
+            m_music.Resume();
             m_drillTimer.Start();
             m_runTimer.Start();
             m_shooting->SetEnabled(true);

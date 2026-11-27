@@ -23,15 +23,16 @@ namespace game
             return;
         }
 
-        glm::vec3 origin(0.0f);
-        glm::vec3 direction(0.0f);
-        if (m_player->ConsumeShotFired(origin, direction))
+        // Fast automatics can queue several rounds in one frame; each is its own
+        // closest-hit ray, so one round still registers at most one hit.
+        Player::Shot shot;
+        while (m_player->ConsumeShot(shot))
         {
-            ResolveShot(origin, direction);
+            ResolveShot(shot.origin, shot.direction, shot.damage);
         }
     }
 
-    void ShootingController::ResolveShot(const glm::vec3& origin, const glm::vec3& direction)
+    void ShootingController::ResolveShot(const glm::vec3& origin, const glm::vec3& direction, float damage)
     {
         m_stats->RegisterShot();
 
@@ -64,7 +65,7 @@ namespace game
 
         if (auto* target = hit.object->GetComponent<TargetComponent>())
         {
-            target->OnHit(hit.point, unitDirection);
+            target->OnHit(hit.point, unitDirection, damage);
             interactive = true;
         }
 

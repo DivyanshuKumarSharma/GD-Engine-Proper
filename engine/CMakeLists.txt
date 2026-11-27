@@ -16,12 +16,12 @@ set(PROJECT_SOURCE_FILES
 	source/Engine.cpp
 	source/Application.h
 	source/Application.cpp
-	source/input/InputManager.h
-	source/input/InputManager.cpp
-	source/graphics/ShaderProgram.h
-	source/graphics/ShaderProgram.cpp
-	source/graphics/GraphicsAPI.h
-	source/graphics/GraphicsAPI.cpp
+	source/Input/InputManager.h
+	source/Input/InputManager.cpp
+	source/Graphics/ShaderProgram.h
+	source/Graphics/ShaderProgram.cpp
+	source/Graphics/GraphicsAPI.h
+	source/Graphics/GraphicsAPI.cpp
 	source/graphics/Texture.h
 	source/graphics/Texture.cpp
 	source/graphics/Framebuffer.h
@@ -107,6 +107,7 @@ endforeach()
 
 include_directories(source)
 add_library(${PROJECT_NAME} ${PROJECT_SOURCE_FILES})
+target_link_libraries(${PROJECT_NAME} EngineSystems)
 
 # Add GLFW library
 add_subdirectory(thirdparty/glfw-3.4 "${CMAKE_CURRENT_BINARY_DIR}/glfw_build")
@@ -205,11 +206,4 @@ target_link_libraries(${PROJECT_NAME}
     BulletCollision
     LinearMath
 	miniaudio
-)
-
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-	COMMAND ${CMAKE_COMMAND} -E copy_directory
-	${ASSETS_DIR}
-	${CMAKE_BINARY_DIR}/assets
-	VERBATIM
 )

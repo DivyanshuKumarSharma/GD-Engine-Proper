@@ -9,10 +9,10 @@ means the schema/UI exists but the pipeline is not finished.
 |---|---|---|---|
 | 3D model | `.gltf`, `.glb` | **Load: works** (cgltf, triangles + base-colour texture + node transforms + skinned-clip import). **Import pipeline: planned.** | Materials beyond base colour, cameras, lights, morph targets are ignored. `.glb` binary chunk parsing is inherited from cgltf and not yet regression-tested here. |
 | 3D model | `.blend` | **Planned** — optional local-Blender conversion step, never a playback dependency. Not started. |
-| Image | `.png`, `.jpg`/`.jpeg` | **Load: works** (stb_image). Image-target builder keeps aspect ratio; transparent-area hit behaviour is authored explicitly (`meta.transparentAreaHits`, default off). **Import/relink UI: planned.** |
+| Image | `.png`, `.jpg`/`.jpeg` | **Load: works** (stb_image). Image-target builder keeps aspect ratio. Hits use the full image rectangle today, and the target records that explicitly (`meta.hitArea: "full-rectangle"`, `meta.transparentAreaHits: true`); alpha-tested hits are planned. **Import/relink UI: planned.** |
 | Image | `.bmp`, `.tga` | Recognised by the browser; stb_image can decode them but they are not part of the tested subset. |
-| Audio | `.wav` | **Works** (miniaudio) — used for weapon/step/jump sounds today. |
-| Audio | `.mp3`, `.ogg`, `.flac` | miniaudio can decode these in principle; **not tested** in this build. Music playback wiring is planned. |
+| Audio | `.wav` | **Works** (miniaudio) — weapon fire/reload/empty, step and jump sounds, and per-drill music (looping, pause/resume verified by `editor_workflow`). |
+| Audio | `.mp3`, `.ogg`, `.flac` | miniaudio can decode these in principle; **not tested** in this build. |
 | Font | `.ttf` | **Works** (FreeType) — used by the in-game HUD/menus. |
 | Scene | `.sc` | Engine scene JSON (objects / components / children / prefabs / stable ids). |
 | Project | `project.json` + `drills/*.json` | CourseMaker project. Schema v1. Versioned; a newer file is refused with a clear message. |

@@ -17,6 +17,8 @@ public:
 
     void SetSelfTest(bool enabled) { m_selfTest = enabled; }
     void SetScreenshotDir(std::string dir) { m_screenshotDir = std::move(dir); }
+    // Play a CourseMaker project folder instead of the bundled example.
+    void SetProjectRoot(std::string root) { m_projectRoot = std::move(root); }
 
     void RegisterTypes() override;
     bool Init() override;
@@ -29,4 +31,5 @@ private:
     std::unique_ptr<game::SelfTest> m_selfTestRunner;
     bool m_selfTest = false;
     std::string m_screenshotDir;
+    std::string m_projectRoot;
 };

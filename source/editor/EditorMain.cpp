@@ -61,10 +61,11 @@ int main(int argc, char** argv)
     eng::Engine& engine = eng::Engine::GetInstance();
     engine.SetApplication(app);
 
-    if (engine.Init(1600, 900))
+    const bool initialized = engine.Init(1600, 900);
+    if (initialized)
     {
         engine.Run();
     }
     engine.Destroy();
-    return 0;
+    return initialized ? 0 : 1;
 }

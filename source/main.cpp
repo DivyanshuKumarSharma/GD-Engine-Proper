@@ -1,4 +1,4 @@
-#include "Game.h"
+#include "game.h"
 #include <eng.h>
 
 #include <cstring>
@@ -8,6 +8,7 @@ int main(int argc, char** argv)
 {
     bool selfTest = false;
     std::string screenshotDir;
+    std::string projectRoot;
 
     for (int i = 1; i < argc; ++i)
     {
@@ -20,10 +21,18 @@ int main(int argc, char** argv)
             screenshotDir = argv[++i];
             selfTest = true; // screenshots are driven by the self-test walking the states
         }
+        else if (argv[i][0] != '-')
+        {
+            projectRoot = argv[i]; // a CourseMaker project folder to play
+        }
     }
 
     Game* game = new Game();
     game->SetSelfTest(selfTest);
+    if (!projectRoot.empty())
+    {
+        game->SetProjectRoot(projectRoot);
+    }
     if (!screenshotDir.empty())
     {
         game->SetScreenshotDir(screenshotDir);
@@ -32,11 +41,12 @@ int main(int argc, char** argv)
     eng::Engine& engine = eng::Engine::GetInstance();
     engine.SetApplication(game);
 
-    if (engine.Init(1280, 720))
+    const bool initialized = engine.Init(1280, 720);
+    if (initialized)
     {
         engine.Run();
     }
 
     engine.Destroy();
-    return 0;
+    return initialized ? 0 : 1;
 }

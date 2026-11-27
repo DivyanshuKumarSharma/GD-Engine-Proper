@@ -42,6 +42,7 @@ namespace game
             definition.intro = json.value("intro", "");
             definition.targetTimeSeconds = json.value("targetTime", 60.0f);
             definition.playerStart = ReadVec3(json, "playerStart", glm::vec3(0.0f));
+            definition.musicPath = json.value("music", std::string());
 
             if (json.contains("objectives") && json["objectives"].is_array())
             {

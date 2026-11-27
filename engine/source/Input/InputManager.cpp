@@ -1,10 +1,11 @@
-#include "input/InputManager.h"
+#include "Input/InputManager.h"
 
 #include <GLFW/glfw3.h>
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <exception>
 #include <stdexcept>
 #include <unordered_map>
@@ -32,6 +33,15 @@ namespace
             return GLFW_KEY_0 + (name[0] - '0');
         }
 
+        if (name.size() >= 2 && name.size() <= 3 && name[0] == 'F')
+        {
+            const int n = std::atoi(name.c_str() + 1);
+            if (n >= 1 && n <= 12)
+            {
+                return GLFW_KEY_F1 + (n - 1);
+            }
+        }
+
         static const std::unordered_map<std::string, int> keys = {
             { "SPACE", GLFW_KEY_SPACE },
             { "ESCAPE", GLFW_KEY_ESCAPE },
@@ -47,11 +57,41 @@ namespace
             { "LEFT_CONTROL", GLFW_KEY_LEFT_CONTROL },
             { "RIGHT_CONTROL", GLFW_KEY_RIGHT_CONTROL },
             { "LEFT_ALT", GLFW_KEY_LEFT_ALT },
-            { "RIGHT_ALT", GLFW_KEY_RIGHT_ALT }
+            { "RIGHT_ALT", GLFW_KEY_RIGHT_ALT },
+            { "SHIFT", GLFW_KEY_LEFT_SHIFT },
+            { "CTRL", GLFW_KEY_LEFT_CONTROL },
+            { "ALT", GLFW_KEY_LEFT_ALT },
+            { "CAPS_LOCK", GLFW_KEY_CAPS_LOCK },
+            { "GRAVE", GLFW_KEY_GRAVE_ACCENT },
+            { "MINUS", GLFW_KEY_MINUS },
+            { "EQUAL", GLFW_KEY_EQUAL },
+            { "COMMA", GLFW_KEY_COMMA },
+            { "PERIOD", GLFW_KEY_PERIOD },
+            { "SLASH", GLFW_KEY_SLASH },
+            { "SEMICOLON", GLFW_KEY_SEMICOLON },
+            { "APOSTROPHE", GLFW_KEY_APOSTROPHE },
+            { "LEFT_BRACKET", GLFW_KEY_LEFT_BRACKET },
+            { "RIGHT_BRACKET", GLFW_KEY_RIGHT_BRACKET },
+            { "BACKSLASH", GLFW_KEY_BACKSLASH },
+            { "INSERT", GLFW_KEY_INSERT },
+            { "DELETE", GLFW_KEY_DELETE },
+            { "HOME", GLFW_KEY_HOME },
+            { "END", GLFW_KEY_END },
+            { "PAGE_UP", GLFW_KEY_PAGE_UP },
+            { "PAGE_DOWN", GLFW_KEY_PAGE_DOWN }
         };
 
         const auto iterator = keys.find(name);
         return iterator == keys.end() ? -1 : iterator->second;
+    }
+
+    // "WHEEL_UP" -> +1, "WHEEL_DOWN" -> -1, anything else -> 0.
+    int WheelCodeFromName(const std::string& name)
+    {
+        const std::string n = NormalizeName(name);
+        if (n == "WHEEL_UP") return 1;
+        if (n == "WHEEL_DOWN") return -1;
+        return 0;
     }
 
     int MouseButtonCodeFromName(const std::string& buttonName)
@@ -243,8 +283,16 @@ namespace eng
                     }
                     else if (device == "MOUSE")
                     {
-                        binding.type = BindingType::MouseButton;
-                        binding.code = MouseButtonCodeFromName(codeName);
+                        if (const int wheel = WheelCodeFromName(codeName); wheel != 0)
+                        {
+                            binding.type = BindingType::MouseWheel;
+                            binding.code = wheel > 0 ? 1 : 0; // stored non-negative; see WheelMatches
+                        }
+                        else
+                        {
+                            binding.type = BindingType::MouseButton;
+                            binding.code = MouseButtonCodeFromName(codeName);
+                        }
                     }
                     else
                     {
@@ -293,9 +341,13 @@ namespace eng
         return std::any_of(iterator->second.begin(), iterator->second.end(),
             [this](const ActionBinding& binding)
             {
-                return binding.type == BindingType::Keyboard
-                    ? IsKeyPressed(binding.code)
-                    : IsMouseButtonPressed(binding.code);
+                switch (binding.type)
+                {
+                case BindingType::Keyboard: return IsKeyPressed(binding.code);
+                case BindingType::MouseButton: return IsMouseButtonPressed(binding.code);
+                case BindingType::MouseWheel: return WheelNotch(binding.code);
+                }
+                return false;
             });
     }
 
@@ -310,9 +362,13 @@ namespace eng
         return std::any_of(iterator->second.begin(), iterator->second.end(),
             [this](const ActionBinding& binding)
             {
-                return binding.type == BindingType::Keyboard
-                    ? WasKeyPressed(binding.code)
-                    : WasMouseButtonPressed(binding.code);
+                switch (binding.type)
+                {
+                case BindingType::Keyboard: return WasKeyPressed(binding.code);
+                case BindingType::MouseButton: return WasMouseButtonPressed(binding.code);
+                case BindingType::MouseWheel: return WheelNotch(binding.code);
+                }
+                return false;
             });
     }
 
@@ -327,14 +383,38 @@ namespace eng
         return std::any_of(iterator->second.begin(), iterator->second.end(),
             [this](const ActionBinding& binding)
             {
-                return binding.type == BindingType::Keyboard
-                    ? WasKeyReleased(binding.code)
-                    : WasMouseButtonReleased(binding.code);
+                switch (binding.type)
+                {
+                case BindingType::Keyboard: return WasKeyReleased(binding.code);
+                case BindingType::MouseButton: return WasMouseButtonReleased(binding.code);
+                case BindingType::MouseWheel: return false; // a notch has no "release"
+                }
+                return false;
             });
+    }
+
+    bool InputManager::WheelNotch(int upCode) const
+    {
+        if (m_suppressed)
+        {
+            return false;
+        }
+        return upCode == 1 ? m_scrollDelta > 0.0f : m_scrollDelta < 0.0f;
+    }
+
+    void InputManager::AddScroll(float delta)
+    {
+        m_scrollDelta += delta;
+    }
+
+    float InputManager::GetScrollDelta() const
+    {
+        return m_suppressed ? 0.0f : m_scrollDelta;
     }
 
     void InputManager::ClearStates()
     {
+        m_scrollDelta = 0.0f;
         SetMousePositionChanged(false);
         m_keyPressed.fill(false);
         m_keyReleased.fill(false);

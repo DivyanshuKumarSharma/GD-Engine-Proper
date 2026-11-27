@@ -1,5 +1,5 @@
 #include "render/Material.h"
-#include "graphics/ShaderProgram.h"
+#include "Graphics/ShaderProgram.h"
 #include "graphics/Texture.h"
 #include "Engine.h"
 

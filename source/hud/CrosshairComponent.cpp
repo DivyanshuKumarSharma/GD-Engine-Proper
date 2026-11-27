@@ -24,7 +24,7 @@ namespace game
         const float t = m_hitFlashDuration > 0.0f ? m_hitFlash / m_hitFlashDuration : 0.0f;
         const bool hit = m_hitFlash > 0.0f;
         const glm::vec4 color = hit ? m_hitColor : m_color;
-        const float gap = m_gap + (hit ? t * 7.0f : 0.0f);
+        const float gap = m_gap + m_spreadGap + (hit ? t * 7.0f : 0.0f);
         const float length = m_length + (hit ? t * 4.0f : 0.0f);
         const float half = (m_thickness + (hit ? t * 1.5f : 0.0f)) * 0.5f;
 

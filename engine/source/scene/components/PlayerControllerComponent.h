@@ -29,6 +29,10 @@ namespace eng
         // Instantly move the player to a world position and stop any motion.
         void Teleport(const glm::vec3& worldPosition);
 
+        // Nudge the view (degrees; +pitch looks up). Applied immediately, never
+        // smoothed, so weapon recoil adds no input latency to aiming.
+        void AddLookOffset(float pitchDegrees, float yawDegrees);
+
         // Frame-rate-independent horizontal-velocity integration used by the
         // "accel" movement model. Exposed for tests. `current`/`target` are m/s
         // in the ground plane; returns the new velocity after `dt` seconds.

@@ -14,7 +14,9 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/quaternion.hpp>
 
+#include <algorithm>
 #include <cmath>
+#include <functional>
 
 namespace editor
 {
@@ -39,6 +41,24 @@ namespace editor
         nlohmann::json ghost = m_doc;
         ghost["name"] = "(placing) " + m_label;
         ghost.erase("id");
+        // The preview must not have a collider, or the crosshair raycast would
+        // hit the ghost itself and it would flicker between surface and air.
+        std::function<void(nlohmann::json&)> stripPhysics = [&](nlohmann::json& node)
+        {
+            if (node.contains("components") && node["components"].is_array())
+            {
+                auto& comps = node["components"];
+                comps.erase(std::remove_if(comps.begin(), comps.end(), [](const nlohmann::json& c)
+                {
+                    return c.value("type", "") == "PhysicsComponent";
+                }), comps.end());
+            }
+            if (node.contains("children") && node["children"].is_array())
+            {
+                for (auto& child : node["children"]) stripPhysics(child);
+            }
+        };
+        stripPhysics(ghost);
         m_ghostId = SceneEdit::Instantiate(scene, 0, ghost, static_cast<std::size_t>(-1));
         if (m_ghostId == 0)
         {

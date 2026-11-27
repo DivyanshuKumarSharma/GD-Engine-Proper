@@ -28,6 +28,7 @@ namespace game
         std::string intro;                    // one line shown on the title card
         float targetTimeSeconds = 60.0f;      // par time, used for the time bonus
         glm::vec3 playerStart = glm::vec3(0.0f);
+        std::string musicPath;                // asset-relative; "" = no music for this drill
         std::vector<ObjectiveDefinition> objectives;
         nlohmann::json content = nlohmann::json::array(); // scene-schema object list
     };

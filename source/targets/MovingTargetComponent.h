@@ -1,36 +1,60 @@
 #pragma once
 
+#include "targets/PathMotion.h"
+
 #include <eng.h>
 
 #include <glm/vec3.hpp>
 
+#include <vector>
+
 namespace game
 {
-    // Ping-pongs the owner between two points at a constant speed. Pair with a
-    // kinematic PhysicsComponent so the collider (and therefore hitscan rays)
-    // follow. Authored as:
+    // Moves the owner along a waypoint path. Pair with a kinematic
+    // PhysicsComponent so the collider (and therefore hitscan rays) follows.
     //
-    //   { "type": "MovingTargetComponent", "pointA": {"x":0,"y":0,"z":0},
-    //     "pointB": {"x":6,"y":0,"z":0}, "speed": 2.5, "relative": true }
+    //   { "type": "MovingTargetComponent",
+    //     "points": [ {"x":-3,"y":0,"z":0}, {"x":3,"y":2,"z":0} ],
+    //     "relative": true,          // points are offsets from the authored position
+    //     "speed": 2.5,              // metres per second along the path
+    //     "playback": "pingpong",    // pingpong | loop | once
+    //     "easing": true,            // slow into each waypoint (segment time unchanged)
+    //     "startDelay": 0.5,         // seconds before it starts moving
+    //     "path": "diagonal" }       // editor preset label (informational)
     //
-    // "relative" (default) treats the points as offsets from the spawn position.
+    // Legacy "pointA"/"pointB" are read as a two-point path.
+    //
+    // The authored transform is never touched until the first Update(), so a
+    // scene loaded for editing (which never ticks components) keeps the exact
+    // position the designer placed - no drift across save/reload.
     class MovingTargetComponent : public eng::Component
     {
         COMPONENT(MovingTargetComponent)
     public:
         void LoadProperties(const nlohmann::json& json) override;
+        void SaveProperties(nlohmann::json& json) const override;
         void Init() override;
         void Update(float deltaTime) override;
 
+        const PathMotion& Motion() const { return m_motion; }
+        // Authored waypoints: offsets from the owner's position when relative,
+        // otherwise positions in the owner's parent space.
+        const std::vector<glm::vec3>& Points() const { return m_points; }
+        bool IsRelative() const { return m_relative; }
+
     private:
-        glm::vec3 m_pointA = glm::vec3(0.0f);
-        glm::vec3 m_pointB = glm::vec3(0.0f);
+        void Rebuild();
+
+        std::vector<glm::vec3> m_points;
         float m_speed = 2.0f;
         bool m_relative = true;
+        bool m_easing = true;
+        float m_startDelay = 0.0f;
+        PathPlayback m_playback = PathPlayback::PingPong;
 
-        glm::vec3 m_from = glm::vec3(0.0f);
-        glm::vec3 m_to = glm::vec3(0.0f);
-        float m_param = 0.0f;   // 0..1 along the segment
-        int m_direction = 1;
+        PathMotion m_motion;
+        glm::vec3 m_origin = glm::vec3(0.0f);
+        bool m_originCaptured = false;
+        nlohmann::json m_navigation;
     };
 }

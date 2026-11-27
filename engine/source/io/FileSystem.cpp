@@ -45,6 +45,11 @@ namespace eng
 
     std::filesystem::path FileSystem::GetDefaultAssetsFolder() const
     {
+        // Prefer packaged assets; a development checkout must never silently
+        // override the contents of a downloaded, relocated playable build.
+        const auto executable = GetExecutableFolder();
+        if (std::filesystem::is_directory(executable / "assets")) return executable / "assets";
+        if (std::filesystem::is_directory(executable.parent_path() / "assets")) return executable.parent_path() / "assets";
 #if defined (ASSETS_ROOT)
         auto path = std::filesystem::path(std::string(ASSETS_ROOT));
         if (std::filesystem::exists(path))

@@ -1,0 +1,10 @@
+name,src_file,src_line,total_ns,total_perc,counts,mean_ns,min_ns,max_ns,std_ns
+Scene render,C:\Projects&Games\GD-Engine-Proper\engine\source\Engine.cpp,211,3296347,0.087945,121,27242,3649,786719,73635.809306
+Grid pathfinding,C:\Projects&Games\GD-Engine-Proper\engine\source\systems\Navigation.cpp,17,19364,0.000517,4,4841,4200,5571,595.108393
+Application update,C:\Projects&Games\GD-Engine-Proper\engine\source\Engine.cpp,157,1967967506,52.504711,121,16264194,282401,880848157,96523382.694652
+Engine frame,C:\Projects&Games\GD-Engine-Proper\engine\source\Engine.cpp,142,2757810769,73.577464,121,22791824,916300,881584441,95634039.274442
+Job execution,C:\Projects&Games\GD-Engine-Proper\engine\source\systems\JobSystem.cpp,52,29341363,0.782818,2,14670681,2930352,26411011,16603333.205629
+Asset preview read/decode,C:\Projects&Games\GD-Engine-Proper\engine\source\graphics\Texture.cpp,130,26407545,0.704544,1,26407545,26407545,26407545,0.000000
+Asset preview upload,C:\Projects&Games\GD-Engine-Proper\engine\source\graphics\Texture.cpp,116,7986804,0.213085,1,7986804,7986804,7986804,0.000000
+Bullet main step,C:\Projects&Games\GD-Engine-Proper\engine\source\physics\PhysicsManager.cpp,66,1718232,0.045842,62,27713,1631,87772,26623.750704
+Physics update,C:\Projects&Games\GD-Engine-Proper\engine\source\physics\PhysicsManager.cpp,48,2408713,0.064264,121,19906,18,95495,26919.391427

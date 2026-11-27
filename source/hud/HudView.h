@@ -59,5 +59,13 @@ namespace game
         eng::TextComponent* m_centerBig = nullptr;
         std::array<eng::TextComponent*, 5> m_centerLines{};
         eng::TextComponent* m_hintLine = nullptr;
+
+        // bottom-left weapon block (loadout mode only)
+        HudPanelComponent* m_panelWeapon = nullptr;
+        eng::TextComponent* m_weaponName = nullptr;
+        eng::TextComponent* m_weaponAmmo = nullptr;
+        eng::TextComponent* m_weaponSlots = nullptr;
+
+        void RefreshWeapon(const CourseDirector& director, bool show, float width, float height);
     };
 }

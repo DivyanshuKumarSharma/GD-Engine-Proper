@@ -9,6 +9,8 @@
 #include "editor/PlacementTool.h"
 #include "editor/PlayController.h"
 #include "project/CourseProject.h"
+#include "systems/SpatialIndex.h"
+#include <unordered_map>
 
 #include <cstdint>
 #include <filesystem>
@@ -102,8 +104,16 @@ namespace editor
         // begins it - used by EnterPlay and by RestartPlay (which rebuilds the
         // scene, so the director and its Player pointer must be rebuilt too).
         void BeginDirectorRun(bool wholeCourse);
-        const WeaponDef* ResolveActiveWeapon() const;
+        // The weapons the player spawns with: the active drill's Allowed Weapons
+        // in order, or every project weapon when none are ticked (max 9 slots).
+        std::vector<WeaponDef> ResolveLoadout() const;
         bool LoadProjectInputMap();
+        void ApplyAudioMix();
+        void PreviewSound(const std::string& projectRelativePath);
+        std::string UniqueWeaponId(const std::string& base) const;
+        // The binding token for whatever key / mouse button / wheel notch was
+        // pressed this frame ("" if none, "Escape" to cancel a capture).
+        static std::string CaptureBindingToken();
 
         // ---- panels ----
         void DrawDockSpaceAndMenu();
@@ -128,6 +138,10 @@ namespace editor
         CommandStack m_commands;
         PlayController m_play;
         PlacementTool m_placement;
+        eng::systems::SpatialIndex m_pickIndex;
+        struct PickShape { glm::mat4 inverse; glm::vec3 halfExtents; };
+        std::unordered_map<uint64_t, PickShape> m_pickShapes;
+        long m_pickRevision = -1;
         AssetLibrary m_assets;
         std::unique_ptr<game::CourseDirector> m_director;
         bool m_lastPlayWasWholeCourse = false;
@@ -150,6 +164,10 @@ namespace editor
         int m_gizmoOperation = 7;  // ImGuizmo TRANSLATE
         bool m_gridSnap = true;
         float m_gridSize = 0.5f;
+        bool m_showPaths = true;           // moving-target path preview overlay
+        std::string m_bindingCapture;      // action whose key is being captured ("" = none)
+        int m_bindingCaptureFrame = 0;
+        std::shared_ptr<eng::Audio> m_previewSound;
         char m_searchBuffer[128] = { 0 };
 
         // modals
@@ -174,6 +192,9 @@ namespace editor
         int m_demoWait = 0;
         int m_demoPollFrames = 0;
         int m_demoFails = 0;
+        uint64_t m_demoMoverId = 0;
+        glm::vec3 m_demoMoverPos = glm::vec3(0.0f);
+        bool m_demoAudio = false;
         nlohmann::json m_demoSnapshotCheck;
     };
 }

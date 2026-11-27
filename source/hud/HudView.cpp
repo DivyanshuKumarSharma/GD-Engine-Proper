@@ -1,6 +1,8 @@
 #include "hud/HudView.h"
 
+#include "Player.h"
 #include "course/CourseDirector.h"
+#include "project/WeaponCatalog.h"
 #include "drills/DrillRunner.h"
 #include "hud/CrosshairComponent.h"
 #include "hud/HudPanelComponent.h"
@@ -10,6 +12,10 @@
 
 #include <eng.h>
 
+#include <glm/trigonometric.hpp>
+
+#include <algorithm>
+#include <cmath>
 #include <string>
 
 namespace game
@@ -57,6 +63,7 @@ namespace game
         m_panelCenter = MakePanel("HudPanelCenter");
         m_panelTopLeft = MakePanel("HudPanelTopLeft");
         m_panelTopCenter = MakePanel("HudPanelTopCenter");
+        m_panelWeapon = MakePanel("HudPanelWeapon");
 
         auto* crosshairObject = scene->CreateObject("HudCrosshair", m_canvasObject);
         m_crosshair = new CrosshairComponent();
@@ -82,7 +89,74 @@ namespace game
         }
         m_hintLine = MakeText("HudHint", 16, glm::vec2(0.5f, 0.5f), kDim);
 
+        m_weaponName = MakeText("HudWeaponName", 18, glm::vec2(0.0f, 0.0f), kAmber);
+        m_weaponAmmo = MakeText("HudWeaponAmmo", 34, glm::vec2(0.0f, 0.0f), kWhite);
+        m_weaponSlots = MakeText("HudWeaponSlots", 14, glm::vec2(0.0f, 0.0f), kDim);
+
         SetVisible(false);
+    }
+
+    void HudView::RefreshWeapon(const CourseDirector& director, bool show, float width, float height)
+    {
+        (void)width;
+        const Player* player = director.ActivePlayer();
+        const WeaponInventory* inventory = player ? player->Inventory() : nullptr;
+        const WeaponDef* active = inventory ? inventory->Active() : nullptr;
+        show = show && active;
+
+        if (m_panelWeapon)
+        {
+            m_panelWeapon->SetVisible(show);
+            m_panelWeapon->SetColor(kPanel);
+            m_panelWeapon->SetRect(glm::vec2(12.0f, 14.0f), glm::vec2(400.0f, 112.0f));
+        }
+        if (!show)
+        {
+            Clear(m_weaponName);
+            Clear(m_weaponAmmo);
+            Clear(m_weaponSlots);
+            if (m_crosshair) m_crosshair->SetSpreadGap(0.0f);
+            return;
+        }
+
+        SetText(m_weaponName, std::to_string(inventory->ActiveIndex() + 1) + "  " + active->name,
+            glm::vec2(28.0f, 82.0f));
+
+        if (inventory->IsReloading())
+        {
+            SetText(m_weaponAmmo, "RELOADING " + std::to_string(static_cast<int>(inventory->ReloadProgress() * 100.0f)) + "%",
+                glm::vec2(28.0f, 42.0f));
+            m_weaponAmmo->SetColor(kAmber);
+        }
+        else
+        {
+            SetText(m_weaponAmmo, std::to_string(inventory->AmmoInMagazine()) + " / " +
+                std::to_string(inventory->MagazineSize()), glm::vec2(28.0f, 42.0f));
+            const bool low = inventory->AmmoInMagazine() * 4 <= inventory->MagazineSize();
+            m_weaponAmmo->SetColor(low ? glm::vec4(1.0f, 0.45f, 0.35f, 1.0f) : kWhite);
+        }
+
+        std::string slots;
+        for (std::size_t i = 0; i < inventory->Count(); ++i)
+        {
+            const WeaponDef* w = inventory->At(i);
+            if (!w) continue;
+            if (!slots.empty()) slots += "   ";
+            slots += (i == inventory->ActiveIndex() ? "[" : " ") + std::to_string(i + 1) + " " +
+                WeaponCatalog::CategoryLabel(w->category) + (i == inventory->ActiveIndex() ? "]" : " ");
+        }
+        SetText(m_weaponSlots, slots, glm::vec2(28.0f, 22.0f));
+
+        // Crosshair gap = the real cone: pixels = tan(spread) / tan(fov/2) * half-height.
+        if (m_crosshair)
+        {
+            const bool aiming = player->IsAiming();
+            const float zoom = aiming && active->aimZoom > 1.0f ? active->aimZoom : 1.0f;
+            const float halfFov = glm::radians(60.0f / zoom) * 0.5f;
+            const float spread = glm::radians(inventory->CurrentSpreadDegrees(aiming));
+            const float pixels = std::tan(spread) / std::tan(halfFov) * (height * 0.5f);
+            m_crosshair->SetSpreadGap(std::min(pixels, 80.0f));
+        }
     }
 
     eng::TextComponent* HudView::MakeText(const char* name, int fontSize,
@@ -253,6 +327,7 @@ namespace game
 
         m_crosshair->SetVisible(state == GameState::Playing);
 
+        RefreshWeapon(director, showColumns && state != GameState::DrillIntro, width, height);
         RefreshCenter(director, width, height);
     }
 

@@ -28,7 +28,7 @@ namespace game
         Signal<glm::vec3> onHitConfirmed;   // hit position, for the HUD hit marker
 
     private:
-        void ResolveShot(const glm::vec3& origin, const glm::vec3& direction);
+        void ResolveShot(const glm::vec3& origin, const glm::vec3& direction, float damage);
 
         Player* m_player = nullptr;
         PlayerStats* m_stats = nullptr;

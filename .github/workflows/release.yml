@@ -1,0 +1,35 @@
+name: Publish verified release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag whose Engine CI run passed (for example v2.0.0-preview.1)
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download artifacts from a successful CI run for the tagged commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9][A-Za-z0-9._-]*$ ]] || { echo "Invalid version tag"; exit 1; }
+          commit=$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")
+          run_id=$(gh run list --workflow engine-ci.yml --commit "$commit" --status success --event push --json databaseId --jq '.[0].databaseId')
+          test -n "$run_id" && test "$run_id" != null
+          gh run download "$run_id" --pattern 'GD-Engine-*' --dir release-artifacts
+          find release-artifacts -name '*.zip' -print
+          gh release create "$RELEASE_TAG" release-artifacts/*/*.zip --verify-tag --title "GD-Engine $RELEASE_TAG" --generate-notes --draft

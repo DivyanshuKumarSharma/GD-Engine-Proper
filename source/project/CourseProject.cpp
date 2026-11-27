@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <chrono>
 #include <ctime>
 #include <fstream>
@@ -298,6 +299,98 @@ namespace game
         return conflicting;
     }
 
+    nlohmann::json KeyBindings::TokenToInputBinding(const std::string& token)
+    {
+        std::string t;
+        for (char c : token)
+        {
+            if (c != ' ' && c != '_' && c != '-')
+            {
+                t += static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+            }
+        }
+        if (t.empty())
+        {
+            return nullptr;
+        }
+        const auto key = [](const char* code) { return nlohmann::json{ { "device", "keyboard" }, { "code", code } }; };
+        const auto mouse = [](const char* code) { return nlohmann::json{ { "device", "mouse" }, { "code", code } }; };
+
+        if (t.size() == 1 && std::isalnum(static_cast<unsigned char>(t[0])))
+        {
+            return { { "device", "keyboard" }, { "code", t } };
+        }
+        if (t.size() >= 2 && t.size() <= 3 && t[0] == 'F' && std::isdigit(static_cast<unsigned char>(t[1])))
+        {
+            const int n = std::atoi(t.c_str() + 1);
+            if (n >= 1 && n <= 12)
+            {
+                return { { "device", "keyboard" }, { "code", t } };
+            }
+        }
+
+        if (t == "MOUSE1" || t == "MOUSELEFT" || t == "LMB") return mouse("LEFT");
+        if (t == "MOUSE2" || t == "MOUSERIGHT" || t == "RMB") return mouse("RIGHT");
+        if (t == "MOUSE3" || t == "MOUSEMIDDLE" || t == "MMB") return mouse("MIDDLE");
+        if (t == "MOUSE4") return mouse("BUTTON_4");
+        if (t == "MOUSE5") return mouse("BUTTON_5");
+        if (t == "MOUSEWHEELUP" || t == "WHEELUP") return mouse("WHEEL_UP");
+        if (t == "MOUSEWHEELDOWN" || t == "WHEELDOWN") return mouse("WHEEL_DOWN");
+
+        static const std::pair<const char*, const char*> named[] = {
+            { "SPACE", "SPACE" }, { "TAB", "TAB" }, { "ENTER", "ENTER" }, { "RETURN", "ENTER" },
+            { "ESCAPE", "ESCAPE" }, { "ESC", "ESCAPE" }, { "BACKSPACE", "BACKSPACE" },
+            { "SHIFT", "LEFT_SHIFT" }, { "LEFTSHIFT", "LEFT_SHIFT" }, { "RIGHTSHIFT", "RIGHT_SHIFT" },
+            { "CTRL", "LEFT_CONTROL" }, { "CONTROL", "LEFT_CONTROL" }, { "LEFTCTRL", "LEFT_CONTROL" },
+            { "LEFTCONTROL", "LEFT_CONTROL" }, { "RIGHTCTRL", "RIGHT_CONTROL" }, { "RIGHTCONTROL", "RIGHT_CONTROL" },
+            { "ALT", "LEFT_ALT" }, { "LEFTALT", "LEFT_ALT" }, { "RIGHTALT", "RIGHT_ALT" },
+            { "UP", "UP" }, { "DOWN", "DOWN" }, { "LEFT", "LEFT" }, { "RIGHT", "RIGHT" },
+            { "CAPSLOCK", "CAPS_LOCK" }, { "GRAVE", "GRAVE" }, { "TILDE", "GRAVE" },
+            { "MINUS", "MINUS" }, { "EQUAL", "EQUAL" }, { "COMMA", "COMMA" }, { "PERIOD", "PERIOD" },
+            { "SLASH", "SLASH" }, { "SEMICOLON", "SEMICOLON" }, { "APOSTROPHE", "APOSTROPHE" },
+            { "LEFTBRACKET", "LEFT_BRACKET" }, { "RIGHTBRACKET", "RIGHT_BRACKET" }, { "BACKSLASH", "BACKSLASH" },
+            { "INSERT", "INSERT" }, { "DELETE", "DELETE" }, { "HOME", "HOME" }, { "END", "END" },
+            { "PAGEUP", "PAGE_UP" }, { "PAGEDOWN", "PAGE_DOWN" },
+        };
+        for (const auto& [alias, code] : named)
+        {
+            if (t == alias)
+            {
+                return key(code);
+            }
+        }
+        return nullptr;
+    }
+
+    std::string KeyBindings::EngineActionName(const std::string& action)
+    {
+        std::string name = action;
+        if (!name.empty())
+        {
+            name[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(name[0])));
+        }
+        return name;
+    }
+
+    nlohmann::json KeyBindings::ToInputActions(std::vector<std::string>* unsupported) const
+    {
+        nlohmann::json actions = nlohmann::json::object();
+        for (const auto& e : entries)
+        {
+            nlohmann::json binding = TokenToInputBinding(e.second);
+            if (binding.is_null())
+            {
+                if (unsupported && !e.second.empty())
+                {
+                    unsupported->push_back(e.first + "=" + e.second);
+                }
+                continue;
+            }
+            actions[EngineActionName(e.first)] = nlohmann::json::array({ binding });
+        }
+        return actions;
+    }
+
     nlohmann::json KeyBindings::ToJson() const
     {
         nlohmann::json json = nlohmann::json::object();
@@ -413,6 +506,7 @@ namespace game
         def.intro = intro;
         def.targetTimeSeconds = targetTimeSeconds;
         def.playerStart = playerStart;
+        def.musicPath = musicPath;
         def.objectives = objectives;
         def.content = content;
         return def;
@@ -864,6 +958,33 @@ namespace game
             std::string joined;
             for (const auto& c : conflicts) { joined += (joined.empty() ? "" : ", ") + c; }
             v.issues.push_back({ L::Warning, "Key bindings", "These actions share a key: " + joined });
+        }
+
+        std::vector<std::string> unsupported;
+        bindings.ToInputActions(&unsupported);
+        for (const auto& u : unsupported)
+        {
+            v.issues.push_back({ L::Warning, "Key bindings",
+                "Unrecognised key '" + u + "' - it will do nothing in play. Use a letter/digit, F1-F12, "
+                "Space, Shift, Ctrl, Alt, Tab, Mouse1-5, MouseWheelUp or MouseWheelDown." });
+        }
+
+        for (std::size_t i = 0; i < weapons.size(); ++i)
+        {
+            const WeaponDef& w = weapons[i];
+            const std::string where = "Weapon '" + w.name + "'";
+            if (w.fireRateRpm <= 0.0f)
+            {
+                v.issues.push_back({ L::Error, where, "Fire rate must be greater than zero." });
+            }
+            if (w.magazine <= 0)
+            {
+                v.issues.push_back({ L::Error, where, "Magazine must hold at least one round." });
+            }
+            if (w.category == "sniper" && w.aimZoom <= 1.0f)
+            {
+                v.issues.push_back({ L::Info, where, "Sniper has no aim zoom (Aim Zoom <= 1)." });
+            }
         }
 
         return v;

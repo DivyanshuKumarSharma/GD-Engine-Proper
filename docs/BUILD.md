@@ -9,7 +9,7 @@
 | Platform | **Windows 11 — verified.** macOS / Linux: code paths exist, **unverified**. |
 | GPU | OpenGL 3.3 core |
 
-All other dependencies are vendored under `engine/thirdparty/` — no package
+Default-build dependencies are vendored under `engine/thirdparty/` — no package
 manager needed.
 
 ## Configure & build
@@ -28,19 +28,21 @@ in Visual Studio if you prefer.
 | Target | Output | What it is |
 |---|---|---|
 | `CourseMaker` | `build/<cfg>/CourseMaker.exe` | the visual editor |
-| `GameDevelopmentProject` | `build/<cfg>/GameDevelopmentProject.exe` | standalone course player (the original FPS demo) |
+| `GameDevelopmentProject` | `build/<cfg>/GameDevelopmentProject.exe` | standalone course player — plays a CourseMaker project folder, or the bundled example |
 | `course_tests` | `build/<cfg>/course_tests.exe` | pure-logic course/objective/score tests |
 | `editor_tests` | `build/<cfg>/editor_tests.exe` | project persistence / undo-redo / movement-model tests |
+| `gameplay_tests` | `build/<cfg>/gameplay_tests.exe` | weapon fire timing / magazines / reload / spread, moving-target paths, key-binding and mouse-wheel input tests |
 | `Engine` / `imgui` | static libs | engine + editor UI |
 
-The `assets/` folder is copied next to the binaries as a post-build step.
+The `assets/` folder is copied to the build directory at configure time. Reconfigure after changing assets. Packaged builds place assets beside the executables.
 
 ## Run
 
 ```bash
 build/Debug/CourseMaker.exe                 # opens the bundled example project
 build/Debug/CourseMaker.exe path/to/project # opens a specific project folder
-build/Debug/GameDevelopmentProject.exe      # play the built-in course
+build/Debug/GameDevelopmentProject.exe      # play the bundled example course
+build/Debug/GameDevelopmentProject.exe path/to/project  # play a CourseMaker project
 ```
 
 ### Headless / CI
@@ -49,18 +51,21 @@ build/Debug/GameDevelopmentProject.exe      # play the built-in course
 ctest --test-dir build -C Debug --output-on-failure
 ```
 
-Runs `course_tests`, `editor_tests`, and `editor_workflow` (a scripted
-end-to-end editor run: open → add targets → undo/redo → save → play → stop →
-verify the authored scene is restored). `editor_workflow` needs an OpenGL
-context.
+Runs `course_tests`, `editor_tests`, `gameplay_tests`, and `editor_workflow`
+(a scripted end-to-end editor run: open → add targets → undo/redo → save →
+play → switch weapon and fire → pause/resume music → complete → stop → verify
+the authored scene is restored). `editor_workflow` needs an OpenGL context; its
+music checks are skipped (not failed) when no audio device is available.
 
 Extra CourseMaker flags:
 
 * `--demo` — run the scripted workflow, print `DEMO WORKFLOW PASSED/FAILED`, quit.
 * `--shots <dir> [--frames N]` — run N frames, save PNG screenshots, quit.
 
-`GameDevelopmentProject --selftest` runs the original bot playthrough of all
-three drills; `--shots <dir>` adds per-state screenshots.
+`GameDevelopmentProject --selftest` runs a bot playthrough of all three
+drills of the bundled example (loaded from its `project.json`); `--shots <dir>`
+adds per-state screenshots. Any argument not starting with `-` is a project
+folder to play.
 
 ## Notes
 
@@ -69,3 +74,11 @@ three drills; `--shots <dir>` adds per-state screenshots.
 * `highscores.json` is written next to `GameDevelopmentProject.exe`; delete it
   before re-running `--selftest` (the harness expects a clean slate for the
   "first run sets a high score" check).
+
+## Project C systems and profiling
+
+See [Project C](PROJECT_C.md) for the headless systems build, Tracy and Google
+Benchmark options, frame captures, UDP experiment, Linux sanitizer script and ZIP
+packaging. Default builds now include `systems_tests`, `netcode_demo` and
+`systems_bench`; CTest has six suites. Optional profiler/benchmark dependencies
+require an initial download. The default build still uses vendored dependencies.

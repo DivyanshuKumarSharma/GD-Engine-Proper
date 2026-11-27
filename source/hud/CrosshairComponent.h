@@ -4,6 +4,8 @@
 
 #include <glm/vec4.hpp>
 
+#include <algorithm>
+
 namespace game
 {
     // A minimal FPS crosshair drawn straight into the HUD canvas: a centre gap
@@ -18,6 +20,9 @@ namespace game
 
         void SetVisible(bool visible) { m_visible = visible; }
         void FlashHit() { m_hitFlash = m_hitFlashDuration; }
+        // Extra gap (pixels) on top of the resting gap: the HUD feeds the active
+        // weapon's live spread in, so the cross honestly shows the cone.
+        void SetSpreadGap(float pixels) { m_spreadGap = std::max(0.0f, pixels); }
 
     private:
         bool m_visible = true;
@@ -29,5 +34,6 @@ namespace game
         float m_thickness = 2.0f;
         float m_length = 10.0f;
         float m_gap = 5.0f;
+        float m_spreadGap = 0.0f;
     };
 }

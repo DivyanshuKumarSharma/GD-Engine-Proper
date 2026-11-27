@@ -1,0 +1,68 @@
+[demo] ok    project opened on startup
+[demo] ok    example project has 3 drills
+[demo] ok    SaveAs to a sandbox folder
+[demo] ok    three targets added to the scene
+[demo] ok    last placed target is selected
+[demo] ok    undo removes the triangle target
+[demo] ok    redo restores it
+[demo] ok    an object is selected for the move test
+[demo] ok    move applied
+[demo] ok    undo restores position
+[demo] ok    background image preview decoded and uploaded on the main thread
+[demo] ok    moving target added
+[demo] ok    rebuilding a moving target keeps its authored position (no drift)
+[demo] ok    A* target computes shortest route around grid wall
+[demo] ok    A* route survives serialization and reconstruction
+[demo] ok    SaveProject() writes project + drills
+[demo] ok    command stack is clean after save
+[demo] ok    moving target position unchanged by save
+[HighScore] loaded (score 5809)
+[State] MainMenu
+[State] DrillIntro
+[Drill] Started 'DRILL 01 - TARGET PRACTICE'
+[Drill] DRILL 01 - TARGET PRACTICE - Shoot the cubes off their stands, then tag the red plates.
+[demo] ok    entered play mode
+[demo] ok    CourseDirector created for the playtest
+[State] Countdown
+[Countdown] 1
+[Countdown] GO!
+[State] Playing
+[Drill] GO
+[demo] ok    director reached Playing after intro + countdown
+[demo] ok    DrillRunner spawned the drill's DrillRoot
+[demo] ok    drill content spawned exactly once (no duplicate from the editor's layer)
+[demo] ok    player spawned with the full loadout (no Allowed Weapons ticked = every project weapon)
+[demo] ok    one model per weapon, only the active (slot 1) one visible
+[demo] ok    weapon slot 2 selected
+[Objective] Shoot Cubes 1/3
+[demo] ok    active weapon is now slot 2
+[demo] ok    weapon models swapped with the switch
+[demo] ok    holding the trigger fired the SMG through WeaponInventory (ammo spent, shots counted)
+[demo] ok    hitscan shot fired from the spawned player registered a hit on a real drill target
+[demo] ok    moving target travels along its path during play
+[demo] ok    drill music started at GO
+[State] Paused
+[demo] ok    Esc/Pause pauses the drill
+[demo] ok    music pauses with the game
+[State] Playing (resumed)
+[demo] ok    resume returns to Playing
+[demo] ok    music resumes (not restarted from silence)
+[State] DrillComplete
+[Drill] Completed 'DRILL 01 - TARGET PRACTICE' in 00:00.31 | accuracy 17% | score 5809
+[demo] ok    completing all objectives reached DrillComplete
+[demo] ok    music stops when the drill completes
+[State] RunComplete
+[HighScore] new record saved
+[Course] COURSE COMPLETE
+[Score] time 00:00.31 | hits 1/6 | accuracy 17%
+[Score] objective 3000 + accuracy 340 + time 2469 = 5809
+[Score] NEW BEST TIME
+[demo] ok    single-drill run reached RunComplete (results) after the drill-complete dwell
+[demo] ok    a DrillResult was recorded
+[demo] ok    final score computed
+[demo] ok    returned to editor
+[demo] ok    CourseDirector torn down on Stop
+[demo] ok    authored scene object count restored after Stop
+[demo] ok    moving target back at its authored position after Stop
+
+[demo] DEMO WORKFLOW PASSED (0 failed checks)

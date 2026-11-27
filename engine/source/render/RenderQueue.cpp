@@ -1,8 +1,8 @@
 #include "render/RenderQueue.h"
 #include "render/Mesh.h"
 #include "render/Material.h"
-#include "graphics/GraphicsAPI.h"
-#include "graphics/ShaderProgram.h"
+#include "Graphics/GraphicsAPI.h"
+#include "Graphics/ShaderProgram.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 

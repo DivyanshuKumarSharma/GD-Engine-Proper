@@ -1,0 +1,76 @@
+name: Engine CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Linux build and display dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev xvfb
+      - name: Configure
+        run: cmake -S . -B build-ci -DCMAKE_BUILD_TYPE=Release -DGLFW_BUILD_WAYLAND=OFF -DBUILD_BULLET3=OFF -DBUILD_CPU_DEMOS=OFF -DBUILD_OPENGL3_DEMOS=OFF
+      - name: Build
+        run: cmake --build build-ci --config Release --parallel 2
+      - name: Windows CTest
+        if: runner.os == 'Windows'
+        # Hosted Windows runners do not promise an OpenGL 3.3 desktop. The real
+        # graphical workflow runs below on Linux Mesa and locally on Windows.
+        run: ctest --test-dir build-ci -C Release --output-on-failure --timeout 90 -E editor_workflow
+      - name: Linux CTest with software OpenGL
+        if: runner.os == 'Linux'
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: xvfb-run -a ctest --test-dir build-ci -C Release --output-on-failure --timeout 90
+      - name: Package playable build
+        run: python tools/package_build.py --build build-ci --config Release --output dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GD-Engine-${{ runner.os }}
+          path: dist/*.zip
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-logs-${{ runner.os }}
+          path: build-ci/Testing/Temporary/*.log
+  sanitizer:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [address, thread]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure headless sanitizer
+        run: cmake -S . -B build-sanitized -DGD_SYSTEMS_ONLY=ON -DGD_SANITIZER=${{ matrix.sanitizer }} -DCMAKE_BUILD_TYPE=Debug
+      - run: cmake --build build-sanitized --parallel 2
+      - name: Run instrumented tests (a sanitizer failure fails CI)
+        env:
+          TSAN_OPTIONS: halt_on_error=1
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+        run: ctest --test-dir build-sanitized --output-on-failure --timeout 90
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sanitizer-${{ matrix.sanitizer }}
+          path: build-sanitized/Testing/Temporary/*.log
+  benchmark:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake -S . -B build-bench -DGD_SYSTEMS_ONLY=ON -DGD_GOOGLE_BENCHMARK=ON -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build-bench --parallel 2
+      - run: ./build-bench/algorithm_bench --benchmark_repetitions=5 --benchmark_out=benchmarks.json --benchmark_out_format=json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: algorithm-benchmarks
+          path: benchmarks.json

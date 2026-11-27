@@ -13,7 +13,8 @@ namespace eng
         enum class BindingType
         {
             Keyboard,
-            MouseButton
+            MouseButton,
+            MouseWheel   // code +1 = wheel up, -1 = wheel down; "pressed" for one frame per notch
         };
 
         struct ActionBinding
@@ -53,6 +54,10 @@ namespace eng
         void SetMousePositionChanged(bool changed);
         bool IsMousePositionChanged() const;
 
+        // Accumulates scroll this frame (positive = up). Cleared by ClearStates.
+        void AddScroll(float delta);
+        float GetScrollDelta() const;
+
         // While suppressed, every query below reports "not pressed" and the mouse
         // is reported as not moved. The editor sets this so panel interaction and
         // the free-fly camera never reach gameplay input.
@@ -69,6 +74,8 @@ namespace eng
         void ClearStates();
 
     private:
+        bool WheelNotch(int upCode) const;
+
         std::array<bool, 512> m_keys = { false };
         std::array<bool, 512> m_keyPressed = { false };
         std::array<bool, 512> m_keyReleased = { false };
@@ -80,6 +87,7 @@ namespace eng
         glm::vec2 m_mousePositionOld = glm::vec2(0.0f);
         glm::vec2 m_mousePositionCurrent = glm::vec2(0.0f);
         bool m_mousePositionChanged = false;
+        float m_scrollDelta = 0.0f;
 
         friend class Engine;
     };

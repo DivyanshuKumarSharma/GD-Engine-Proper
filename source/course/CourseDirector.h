@@ -2,6 +2,7 @@
 
 #include "course/DrillResult.h"
 #include "course/GameState.h"
+#include "course/MusicPlayer.h"
 #include "drills/DrillDefinition.h"
 #include "stats/HighScoreStore.h"
 #include "stats/PlayerStats.h"
@@ -51,6 +52,12 @@ namespace game
         // headless self-test so a full course runs in seconds).
         void SetFastTransitions(bool fast);
 
+        // Per-drill music: starts at GO (the actual drill start), pauses and
+        // resumes with the game, stops on drill complete / restart / menu /
+        // director teardown. Track volume (the music bus applies on top).
+        void SetMusicVolume(float volume) { m_music.SetVolume(volume); }
+        const MusicPlayer& Music() const { return m_music; }
+
         // Input hooks routed from Game.
         void OnPausePressed();
         void OnConfirmPressed();   // "continue" / "retry" depending on state
@@ -68,6 +75,7 @@ namespace game
 
         // ---- Observation only (HudView + tests); never mutates state ----
         GameState State() const { return m_state; }
+        const Player* ActivePlayer() const { return m_player; }
         const DrillDefinition* CurrentDrillDefinition() const { return CurrentDrill(); }
         std::size_t CurrentDrillIndex() const { return m_currentDrill; }
         std::size_t DrillCount() const { return m_drills.size(); }
@@ -113,6 +121,7 @@ namespace game
         Stopwatch m_runTimer;
         Stopwatch m_drillTimer;
         HighScoreStore m_highScores;
+        MusicPlayer m_music;
 
         std::vector<DrillResult> m_drillResults;
         ScoreBreakdown m_finalScore;

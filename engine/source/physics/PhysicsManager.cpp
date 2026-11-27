@@ -1,6 +1,9 @@
 #include "physics/PhysicsManager.h"
 #include "physics/RigidBody.h"
 #include "physics/CollisionObject.h"
+#include "Engine.h"
+#include "systems/Profiler.h"
+#include <cstdlib>
 
 #include <btBulletCollisionCommon.h>
 #include <btBulletDynamicsCommon.h>
@@ -42,6 +45,7 @@ namespace eng
 
     void PhysicsManager::Update(float deltaTime)
     {
+        GD_ZONE("Physics update");
         if (m_paused)
         {
             return;
@@ -49,7 +53,19 @@ namespace eng
 
         const btScalar fixedTimeStep = 1.0f / 60.0f;
         const int maxSubsteps = 4;
-        m_world->stepSimulation(deltaTime, maxSubsteps, fixedTimeStep);
+        // Exclusive world ownership: no scene update, queries or callbacks run
+        // while Bullet steps. This is opt-in scheduling, not parallel Bullet.
+        const char* jobsFlag = std::getenv("GD_PHYSICS_JOBS");
+        if (jobsFlag && std::string(jobsFlag) == "1") {
+            auto step = Engine::GetInstance().GetJobs().Submit([this, deltaTime, maxSubsteps, fixedTimeStep] {
+                GD_ZONE("Bullet worker step");
+                m_world->stepSimulation(deltaTime, maxSubsteps, fixedTimeStep);
+            });
+            step.get();
+        } else {
+            GD_ZONE("Bullet main step");
+            m_world->stepSimulation(deltaTime, maxSubsteps, fixedTimeStep);
+        }
 
         // process collisions
         auto dispatcher = m_world->getDispatcher();

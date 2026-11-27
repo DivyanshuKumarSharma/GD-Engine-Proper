@@ -1,5 +1,5 @@
 #include "scene/components/PlayerControllerComponent.h"
-#include "input/InputManager.h"
+#include "Input/InputManager.h"
 #include "Engine.h"
 #include "physics/PhysicsManager.h"
 #include <glm/gtc/matrix_transform.hpp>
@@ -168,6 +168,15 @@ namespace eng
         m_kinematicController->Walk(glm::vec3(0.0f));
         m_kinematicController->Warp(worldPosition);
         m_owner->SetPosition(m_kinematicController->GetPosition());
+    }
+
+    void PlayerControllerComponent::AddLookOffset(float pitchDegrees, float yawDegrees)
+    {
+        m_xRot = std::clamp(m_xRot + pitchDegrees, -89.0f, 89.0f);
+        m_yRot += yawDegrees;
+        const glm::quat yRot = glm::angleAxis(glm::radians(m_yRot), glm::vec3(0.0f, 1.0f, 0.0f));
+        const glm::quat xRot = glm::angleAxis(glm::radians(m_xRot), glm::vec3(1.0f, 0.0f, 0.0f));
+        m_owner->SetRotation(glm::normalize(yRot * xRot));
     }
 
     void PlayerControllerComponent::Update(float deltaTime)

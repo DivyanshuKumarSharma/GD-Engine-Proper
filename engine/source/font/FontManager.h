@@ -14,6 +14,7 @@ namespace eng
     public:
         ~FontManager();
         void Init();
+        void Clear() { m_fonts.clear(); }
         std::shared_ptr<Font> GetFont(const std::string& path, int size);
 
     private:

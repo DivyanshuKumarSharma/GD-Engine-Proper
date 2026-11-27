@@ -6,6 +6,28 @@ visual shooting-course authoring tool built on top of it.
 The idea: a custom engine plus a no-code editor where you create, configure,
 save, share and play your own first-person shooting courses.
 
+## Project C: performance, concurrency and netcode
+
+The v2 preview adds a work-stealing job system, background image previews,
+BVH-accelerated editor selection, editable A* navigation targets, and a real UDP
+loopback lab with prediction, interpolation, acknowledgements and packet-loss
+simulation. Optional Tracy instrumentation and Google Benchmark targets make
+the implementation measurable. Windows/Linux CI and sanitizer workflows are
+included; locally verified results are distinguished from pending Linux proof.
+
+See [Project C implementation, experiments and limitations](docs/PROJECT_C.md).
+The Windows Release build passes six CTest suites, including the real editor
+workflow. The systems suite alone performs 15,214 checks. Recorded experiments
+use an Intel x64 machine with 16 logical processors and MSVC 19.44; these are
+workload-specific results, not universal FPS claims.
+
+![BVH query and rebuild measurements](docs/evidence/algorithm-comparison.png)
+![Mean and p99 frame timings](docs/evidence/frame-comparison.png)
+
+Raw CSVs, Google Benchmark JSON, and Tracy captures live in
+[`docs/evidence/`](docs/evidence/). Worker physics remains opt-in because
+scheduling a small simulation does not guarantee faster frames.
+
 ---
 
 ## Two applications
@@ -73,6 +95,7 @@ Then:
 build/Debug/CourseMaker.exe                  # the editor (opens the example project)
 build/Debug/CourseMaker.exe path/to/project  # open a specific project folder
 build/Debug/GameDevelopmentProject.exe       # play the example course
+build/Debug/GameDevelopmentProject.exe path/to/project   # play any CourseMaker project
 ```
 
 On Windows, `gen_proj_vs2022.bat` generates a Visual Studio 2022 solution.
@@ -93,38 +116,47 @@ exist but are currently unverified.
 | `source/editor/` | CourseMaker — the editor application |
 | `source/project/` | project / course document model (shared by editor and runtime) |
 | `assets/` | the bundled example project |
-| `tests/` | test suites (`course_tests`, `editor_tests`) |
+| `tests/` | test suites (`course_tests`, `editor_tests`, `gameplay_tests`) |
 | `docs/` | design, creator guide, build, format matrix |
 
 ---
 
 ## Status
 
-The engine is functional and the editor is a working prototype covered by three
-automated suites (`ctest`): pure-logic course tests, project/persistence/movement
-tests, and an end-to-end workflow that drives the real editor — open a project,
-place targets, undo/redo, save, **enter Play, let a real `CourseDirector` run
-the intro → countdown → drill → completion → results screen**, verify a hitscan
-shot fired from the spawned, moving player actually registers on a live target,
-stop, and confirm the authored scene came back untouched.
+The engine is functional and the editor is a working prototype covered by six
+automated suites (`ctest`): systems/concurrency, impaired UDP loopback, course logic, project/persistence/movement, gameplay
+logic (weapon fire timing, magazines, paths, bindings), and an end-to-end
+workflow that drives the real editor — open a project, place targets, undo/redo,
+save, **enter Play, let a real `CourseDirector` run intro → countdown → drill →
+completion → results**, switch weapons and hold the trigger through the real
+weapon logic, watch a moving target travel its path, pause/resume the drill's
+music, stop, and confirm the authored scene came back untouched.
 
 Working end to end today:
 - Author an environment + any number of drills, each with its own targets,
-  objectives, movement override and allowed weapons.
-- Playtest one drill or the whole course from inside the editor: the player
-  spawns with real frame-rate-independent movement, a weapon model equipped
-  from the project's `WeaponDef`s (fire mode/rate/spread/recoil/sniper zoom, a
-  distinct sound if one's authored), the HUD/crosshair/objectives/timer, pause
-  (Esc) and resume, restart, and the drill-complete → results screen with score
-  and high-score tracking.
-- New projects are playable immediately — a spawned player, default key
-  bindings, and the default checker/audio/font assets are seeded automatically,
-  not just the bundled example.
+  objectives, music, movement override and allowed weapons.
+- **Weapons**: every drill spawns the player with its loadout — pistol, SMG,
+  automatic rifle, sniper — each with its own fire mode (semi / auto / 3-round
+  burst), cadence, magazine and reload, spread that blooms under sustained fire,
+  recoil, sniper aim zoom, damage, model and sounds. Switch with 1–9 or the
+  mouse wheel, reload with R (all rebindable, press-to-bind in the editor), with
+  an ammo/weapon HUD and a crosshair that opens with the real spread.
+- **Targets**: circle / square / triangle / image / model / knock / reach /
+  armored (multi-hit health) targets; moving targets on multi-waypoint paths
+  (presets, ping-pong / loop / once, easing, start delay, constant travel speed)
+  with a live path preview in the viewport.
+- **Audio**: per-drill music that starts at GO, pauses and resumes with the game
+  and stops on completion; overlapping weapon sounds (voice pooling);
+  master / music / effects mix.
+- Playtest one drill or the whole course inside the editor, or play the project
+  standalone: `GameDevelopmentProject <project-folder>` runs the same setup.
+- New projects are playable immediately — spawned player, default key bindings
+  and default assets are seeded automatically.
 - Save, close, reopen, and move the whole project folder elsewhere.
 
-Still in progress (tracked in `docs/SHOOTING_COURSE_MAKER.md`): a weapon
-inventory with slot switching/rebinding/reload (today each drill equips one
-weapon automatically), the asset **import** pipeline (drag-drop placement works;
-copying an external file into the project with format validation doesn't yet),
-moving-target playback modes beyond ping-pong, per-drill music playback, and
-Blender import.
+Still in progress (tracked in `docs/SHOOTING_COURSE_MAKER.md`): the asset
+**import** pipeline (drag-drop placement of project assets works; copying an
+external file into the project with validation and relinking doesn't yet),
+Blender import, per-pixel (alpha-tested) hits on image targets, and per-drill
+weapon/movement overrides in a *standalone* whole-course run (the editor's drill
+playtests honour them; the standalone player uses the project defaults).

@@ -1,5 +1,8 @@
 #include "editor/PrimitiveFactory.h"
 
+#include "targets/PathMotion.h"
+#include "systems/Navigation.h"
+
 #include <algorithm>
 
 namespace editor
@@ -43,7 +46,10 @@ namespace editor
             { "target-square", "Square Target", "Targets" },
             { "target-triangle", "Triangle Target", "Targets" },
             { "target-cube", "Knock Cube", "Targets" },
+            { "target-armored", "Armored Target (100 hp)", "Targets" },
             { "target-moving", "Moving Target", "Targets" },
+            { "target-moving-loop", "Circuit Target (loop)", "Targets" },
+            { "target-navigation", "A* Navigation Target", "Targets" },
             { "reach-zone", "Reach Zone", "Targets" },
 
             { "shape-box", "Box", "Shapes" },
@@ -64,24 +70,34 @@ namespace editor
                                                const glm::vec3& colour, float size)
     {
         nlohmann::json mesh;
+        glm::vec3 hitBox(size, size, 0.08f);
         if (shape == "square")
         {
             mesh = { { "type", "quad" }, { "width", size }, { "height", size } };
         }
         else if (shape == "triangle")
         {
-            mesh = { { "type", "triangle" }, { "radius", size * 0.62f } };
+            const float r = size * 0.62f;
+            mesh = { { "type", "triangle" }, { "radius", r } };
+            // Bounding box of an apex-up triangle inscribed in r: width r*sqrt(3), height 1.5r.
+            hitBox = glm::vec3(r * 1.732f, r * 1.5f, 0.08f);
         }
         else // circle
         {
             mesh = { { "type", "disc" }, { "radius", size * 0.5f }, { "segments", 48 } };
         }
 
+        // The hit volume is the shape's bounding box (hitscan needs a physics
+        // collider; without one a placed target could never be shot). For the
+        // triangle it is centred on the bounding box, which sits slightly below
+        // the mesh origin.
+        nlohmann::json collider = StaticBoxCollider(hitBox, 0.5);
         return {
             { "name", "Target" },
             { "position", Vec3(position) },
             { "components", nlohmann::json::array({
                 MeshComp(mesh, colour),
+                collider,
                 { { "type", "TargetComponent" }, { "kind", "red" }, { "tag", "" },
                   { "despawnDelay", 0.18 }, { "shrinkOnConsume", true } },
             }) },
@@ -107,11 +123,15 @@ namespace editor
                 { { "type", "MeshComponent" },
                   { "mesh", { { "type", "quad" }, { "width", width }, { "height", heightMetres } } },
                   { "material", material } },
+                StaticBoxCollider(glm::vec3(width, heightMetres, 0.08f), 0.5),
                 { { "type", "TargetComponent" }, { "kind", "red" },
                   { "despawnDelay", 0.2 }, { "shrinkOnConsume", true } },
             }) },
+            // Explicit, and true: the hit area is the whole image rectangle, so
+            // fully transparent pixels still register a hit. Per-pixel alpha
+            // testing is not implemented.
             { "meta", { { "imageAspect", aspect }, { "source", imageRelPath },
-                        { "transparentAreaHits", false } } },
+                        { "transparentAreaHits", true }, { "hitArea", "full-rectangle" } } },
         };
     }
 
@@ -159,18 +179,58 @@ namespace editor
                 }) },
             };
         }
-        if (key == "target-moving")
+        if (key == "target-navigation") {
+            auto doc = Make("target-moving", p);
+            doc["name"] = "A* Navigation Target";
+            for (auto& comp : doc["components"]) if (comp.value("type", "") == "MovingTargetComponent") {
+                comp["navigation"] = {{"width",8},{"height",8},{"cellSize",1.5},
+                    {"start",{0,0}},{"goal",{7,7}},
+                    {"blocked",nlohmann::json::array({{3,0},{3,1},{3,2},{3,3},{3,4},{3,5}})}};
+                comp["easing"] = false;
+                comp["path"] = "astar";
+            }
+            return doc;
+        }
+        if (key == "target-moving" || key == "target-moving-loop")
         {
+            const bool loop = key == "target-moving-loop";
             nlohmann::json doc = MakeTarget("circle", p, glm::vec3(0.95f, 0.55f, 0.1f));
-            doc["name"] = "Moving Target";
+            doc["name"] = loop ? "Circuit Target" : "Moving Target";
+            nlohmann::json points = nlohmann::json::array();
+            for (const auto& wp : game::PathMotion::Preset(loop ? "box" : "diagonal", 3.0f))
+            {
+                points.push_back(Vec3(wp));
+            }
+            // Make the target's collider kinematic so it follows the moving mesh
+            // and the hitscan ray tracks it.
+            for (auto& c : doc["components"])
+            {
+                if (c.value("type", "") == "PhysicsComponent")
+                {
+                    c["body"]["type"] = "kinematic";
+                }
+            }
             doc["components"].push_back({
                 { "type", "MovingTargetComponent" },
-                { "path", "diagonal" },
-                { "pointA", Vec3(glm::vec3(-3.0f, 0.0f, 0.0f)) },
-                { "pointB", Vec3(glm::vec3(3.0f, 2.0f, 0.0f)) },
+                { "path", loop ? "box" : "diagonal" },
+                { "points", points },
                 { "speed", 2.5 }, { "relative", true },
-                { "playback", "pingpong" }, { "easing", true }, { "startDelay", 0.0 },
+                { "playback", loop ? "loop" : "pingpong" }, { "easing", !loop }, { "startDelay", 0.0 },
             });
+            return doc;
+        }
+        if (key == "target-armored")
+        {
+            nlohmann::json doc = MakeTarget("square", p, glm::vec3(0.45f, 0.5f, 0.62f), 1.4f);
+            doc["name"] = "Armored Target";
+            for (auto& c : doc["components"])
+            {
+                if (c.value("type", "") == "TargetComponent")
+                {
+                    c["health"] = 100; // a sniper one-shots it; an SMG needs several hits
+                    c["despawnDelay"] = 0.35;
+                }
+            }
             return doc;
         }
         if (key == "reach-zone")

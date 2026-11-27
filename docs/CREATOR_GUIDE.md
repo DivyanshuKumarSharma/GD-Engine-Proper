@@ -29,8 +29,8 @@ Select an object and press **F** to frame it.
 2. Click a drill to make it the **active** drill — its targets appear in the
    viewport under `DrillRoot` and are editable like anything else.
 3. **Add menu** — drop in targets (circle / square / triangle / knock cube /
-   moving / reach zone), shapes, or environment blocks. New objects appear in
-   front of the camera and are selected.
+   armored / moving / circuit / reach zone), shapes, or environment blocks. New
+   objects appear in front of the camera and are selected.
 4. Select an object and edit it in the **Inspector**: name, transform
    (drag the fields or use the on-screen **gizmo** — W / E / R switch
    move / rotate / scale, Grid Snap in the toolbar), and per-component settings
@@ -43,30 +43,62 @@ Select an object and press **F** to frame it.
    the amount and the HUD text. Diagnostics flags a drill that asks for more
    target hits than it has targets.
 
+### Tough targets
+
+A target's **Health** in the Inspector is how much damage it takes before it
+counts as hit (0 = any hit). The Inspector shows how many shots each weapon
+needs — e.g. the **Armored Target** (100 hp) takes 3 pistol rounds or 1 sniper
+round. Non-lethal hits make the target pulse so the player sees the round landed.
+
+### Moving targets
+
+Add a **Moving Target** (back and forth) or **Circuit Target** (loops a box),
+or give any target a MovingTarget component. In the Inspector:
+
+* **Preset path** — Horizontal, Vertical, Diagonal, Zigzag or Box (Box also
+  switches to looping), scaled by *Preset size*.
+* **Waypoints** — edit, add or remove points. They're relative to where the
+  target sits, so moving the target moves its whole path.
+* **Speed** (metres per second along the path), **Playback** (ping-pong, loop,
+  once), **Easing** (slow in/out at each waypoint), **Start delay**.
+
+The viewport draws every path (toggle **Paths** in the toolbar). Selecting a
+target numbers its waypoints, and a marker runs along the path at the speed it
+will move in Play.
+
 ## Movement, weapons, audio
 
 * **Course ▸ Movement defaults** — pick a **Feel** preset (Responsive is the
   Counter-Strike-style reference) or set Move Speed, Jump Height (metres),
   accel / decel / friction / air control / sensitivity directly. A drill can
   untick *Inherit project movement* to override.
-* **Course ▸ Weapons** — four categories (Pistol, SMG, Automatic Rifle, Sniper).
-  Edit fire mode, fire rate, damage, magazine, reload, spread, recoil, and (for
-  snipers) aim zoom. Weapons with no imported model use a simple built-in shape.
-  In Play, hold right mouse to aim down sights — it narrows the FOV by the
-  weapon's Aim Zoom, so give a sniper something greater than 1.
-* A drill's **Allowed Weapons** (leave empty for "any project weapon") decides
-  which one you spawn with in Play; the first entry wins today — a full
-  in-play weapon switcher is next on the roadmap (`docs/SHOOTING_COURSE_MAKER.md`).
-* **Course ▸ Key Bindings** — rebind weapon slots / next / prev / reload / aim.
-  A red field means two actions share a key.
-* **Course ▸ Audio mix** and each drill's **Music** field.
+* **Course ▸ Weapons** — starts with one of each category (Pistol, SMG,
+  Automatic Rifle, Sniper); add, duplicate or delete as many as you like. Edit
+  fire mode (semi = one shot per click, auto = hold, burst = 3 rounds per
+  click), fire rate, damage, magazine, reload time, spread, recoil, and (for
+  snipers) aim zoom. Weapons with no imported model use a simple built-in shape;
+  model, scale, grip and muzzle offsets are editable. Each weapon can have its
+  own **fire / reload / empty** sounds — press **Play** next to a field to hear
+  it, or drag a `.wav` from Assets onto it.
+* A drill's **Allowed Weapons** (empty = every project weapon) is the loadout
+  you carry in that drill, in slot order.
+* **Course ▸ Key Bindings** — click a binding and press the key, mouse button
+  or wheel direction you want (Esc cancels). Defaults: **1–4** weapon slots,
+  **wheel** next / previous, **R** reload, **right mouse** aim. A red field
+  means two actions share a key.
+* **Course ▸ Audio mix** — master, music and effects volume. Each drill's
+  **Music** field takes a `.wav`; it starts at GO, pauses with the game and
+  stops when the drill is complete.
 
 ## Playtest
 
 Press **Play Drill** to run just the active drill, or **Play Course** to run
-every drill in order. You spawn as the player with real movement and whichever
-weapon the drill allows (first of its Allowed Weapons, or the project's first
-weapon) already equipped, muzzle and all. You get the same intro card,
+every drill in order. You spawn as the player with real movement and the
+drill's whole loadout. The HUD shows the active weapon, ammo
+(`15 / 15`, red when low, `RELOADING` while reloading) and your slots; the
+crosshair opens up as sustained fire spreads your shots and closes as you
+settle. Running a magazine dry reloads automatically. Hold **right mouse** to
+aim — with a sniper that zooms in. You get the same intro card,
 3‑2‑1‑GO countdown, HUD (objectives, timer, crosshair), and — once every
 objective is met — a results screen with your time, accuracy and score that
 the standalone course player shows, because it's the same `CourseDirector`
@@ -88,6 +120,12 @@ exactly what you authored — target positions, deleted objects, all of it.
 environment scene, and drops a timestamped copy in `backups/`. The whole project
 folder is portable: zip it, move it, hand it to someone else, and
 **File ▸ Open Project…** reopens it — every reference inside is folder-relative.
+
+To play a course without the editor, pass its folder to the course player:
+`GameDevelopmentProject.exe C:\path\to\my-course`. It uses the project's
+drills, music, mix, key bindings, movement and weapons. (In a whole-course
+standalone run, every drill uses the project's default movement and full
+weapon list; per-drill overrides apply in the editor's Play Drill for now.)
 
 ## When something is wrong
 

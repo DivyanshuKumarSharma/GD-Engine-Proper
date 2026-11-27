@@ -4,6 +4,9 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <future>
+#include <vector>
+#include <unordered_set>
 
 namespace eng
 {
@@ -31,8 +34,14 @@ namespace eng
     {
     public:
         std::shared_ptr<Texture> GetOrLoadTexture(const std::string& path);
+        // Pollable background file read/decode; GL upload occurs on this caller.
+        std::shared_ptr<Texture> RequestPreview(const std::string& path);
+        void Clear();
 
     private:
         std::unordered_map<std::string, std::shared_ptr<Texture>> m_textures;
+        struct Decoded { int width = 0, height = 0; std::vector<unsigned char> rgba; };
+        std::unordered_map<std::string, std::future<Decoded>> m_previews;
+        std::unordered_set<std::string> m_failed;
     };
 }

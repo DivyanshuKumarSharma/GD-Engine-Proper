@@ -1,0 +1,14 @@
+{
+  "Main-thread physics": {
+    "samples": 101,
+    "mean_ms": 13.715174257425744,
+    "p99_ms": 9.0095,
+    "max_ms": 576.7534
+  },
+  "Worker physics + wait": {
+    "samples": 101,
+    "mean_ms": 14.127919801980198,
+    "p99_ms": 15.728,
+    "max_ms": 607.7171
+  }
+}

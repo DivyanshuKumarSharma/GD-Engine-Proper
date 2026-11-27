@@ -49,7 +49,7 @@ namespace game
         float aimZoom = 1.0f;              // >1 narrows FOV (snipers)
         std::string modelPath;             // project-relative glTF; "" -> built-in blockout
         float modelScale = 1.0f;
-        glm::vec3 gripOffset = glm::vec3(0.2f, -0.2f, -0.4f);
+        glm::vec3 gripOffset = glm::vec3(0.26f, -0.27f, -0.42f);
         glm::vec3 muzzleOffset = glm::vec3(0.0f, 0.0f, -0.6f);
         std::string fireSound;             // project-relative wav; "" -> built-in
         std::string reloadSound;
@@ -77,6 +77,16 @@ namespace game
         void Set(const std::string& action, const std::string& input);
         // actions that share an input token (conflict detection for the UI)
         std::vector<std::string> Conflicts() const;
+
+        // "1", "R", "F4", "Space", "LeftShift", "Mouse2", "MouseWheelUp", ... ->
+        // engine input-map binding { "device": ..., "code": ... }; null if the
+        // token isn't recognised.
+        static nlohmann::json TokenToInputBinding(const std::string& token);
+        // "weaponSlot1" -> "WeaponSlot1" (the action name gameplay code reads).
+        static std::string EngineActionName(const std::string& action);
+        // All bindings as an input-map "actions" object to merge over
+        // config/input.json. Unrecognised tokens are skipped and reported.
+        nlohmann::json ToInputActions(std::vector<std::string>* unsupported = nullptr) const;
 
         nlohmann::json ToJson() const;
         static KeyBindings FromJson(const nlohmann::json& json);

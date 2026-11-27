@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.16)
 
 # Some vendored dependencies still declare pre-3.5 CMake compatibility.
 # CMake 4 removed that compatibility unless a policy floor is provided.
@@ -8,6 +8,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 project (GameDevelopmentProject)
+
+option(GD_SYSTEMS_ONLY "Build concurrency, algorithms and UDP tools without graphics dependencies" OFF)
+include(cmake/Systems.cmake)
+if(GD_SYSTEMS_ONLY)
+  return()
+endif()
 
 # ---------------------------------------------------------------------------
 # Shared runtime: the course/drill/target/weapon/player simulation. Both the
@@ -45,6 +51,8 @@ set(COURSE_RUNTIME_SOURCES
   source/course/DrillResult.h
   source/course/CourseDirector.h
   source/course/CourseDirector.cpp
+  source/course/MusicPlayer.h
+  source/course/MusicPlayer.cpp
 
   source/objectives/Objective.h
   source/objectives/Objective.cpp
@@ -69,6 +77,8 @@ set(COURSE_RUNTIME_SOURCES
   source/targets/TargetComponent.cpp
   source/targets/MovingTargetComponent.h
   source/targets/MovingTargetComponent.cpp
+  source/targets/PathMotion.h
+  source/targets/PathMotion.cpp
   source/targets/KnockTargetComponent.h
   source/targets/KnockTargetComponent.cpp
   source/targets/ReachZoneComponent.h
@@ -76,6 +86,10 @@ set(COURSE_RUNTIME_SOURCES
 
   source/weapon/ShootingController.h
   source/weapon/ShootingController.cpp
+  source/weapon/WeaponInventory.h
+  source/weapon/WeaponInventory.cpp
+  source/weapon/Tracer.h
+  source/weapon/Tracer.cpp
 
   source/hud/CrosshairComponent.h
   source/hud/CrosshairComponent.cpp
@@ -92,6 +106,8 @@ set(COURSE_RUNTIME_SOURCES
   source/project/ProjectPaths.cpp
   source/project/WeaponCatalog.h
   source/project/WeaponCatalog.cpp
+  source/project/PlaySetup.h
+  source/project/PlaySetup.cpp
 )
 
 # --- Editor-only sources (Dear ImGui tool shell) ---
@@ -132,8 +148,8 @@ include_directories(engine/thirdparty/json)
 # ---------------------------------------------------------------------------
 add_executable(${PROJECT_NAME}
   source/main.cpp
-  source/Game.h
-  source/Game.cpp
+  source/game.h
+  source/game.cpp
   source/selftest/SelfTest.h
   source/selftest/SelfTest.cpp
   ${COURSE_RUNTIME_SOURCES}
@@ -151,12 +167,9 @@ if(WIN32)
   target_link_libraries(CourseMaker shell32 ole32)
 endif()
 
-add_custom_command(TARGET CourseMaker POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_directory
-  "${CMAKE_SOURCE_DIR}/assets"
-  "${CMAKE_BINARY_DIR}/assets"
-  VERBATIM
-)
+# Configure-time copy avoids nested cmd.exe post-build quoting failures when
+# the checkout path contains '&' (as this development workspace does).
+file(COPY "${CMAKE_SOURCE_DIR}/assets" DESTINATION "${CMAKE_BINARY_DIR}")
 
 # --- Pure-logic tests for the course framework (no window / OpenGL) ---
 set(COURSE_TEST_SOURCES
@@ -188,9 +201,21 @@ add_executable(editor_tests
 target_include_directories(editor_tests PRIVATE source engine/source engine/thirdparty/json engine/thirdparty/glm-1.0.1)
 target_link_libraries(editor_tests Engine)
 
+# --- Runtime gameplay logic tests: weapon timing, paths, bindings (no window) ---
+add_executable(gameplay_tests
+  tests/gameplay_tests.cpp
+  source/targets/PathMotion.cpp
+  source/weapon/WeaponInventory.cpp
+  source/project/CourseProject.cpp
+  source/project/ProjectPaths.cpp
+)
+target_include_directories(gameplay_tests PRIVATE source engine/source engine/thirdparty/json engine/thirdparty/glm-1.0.1)
+target_link_libraries(gameplay_tests Engine)
+
 enable_testing()
 add_test(NAME course_tests COMMAND course_tests)
 add_test(NAME editor_tests COMMAND editor_tests)
+add_test(NAME gameplay_tests COMMAND gameplay_tests)
 # End-to-end editor workflow: opens the example project, adds targets, undo/redo,
 # save, play, stop, verifies the authored scene is restored. Needs a GL context.
 add_test(NAME editor_workflow COMMAND CourseMaker --demo)

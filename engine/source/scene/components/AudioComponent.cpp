@@ -1,5 +1,8 @@
 #include "scene/components/AudioComponent.h"
 #include "scene/GameObject.h"
+#include "Engine.h"
+
+#include <algorithm>
 
 namespace eng
 {
@@ -10,17 +13,39 @@ namespace eng
             auto& clipsObject = json["audio"];
             for (auto& clip : clipsObject)
             {
-                std::string name = clip.value("name", "noname");
-                std::string path = clip.value("path", "");
-                auto audio = Audio::Load(path);
-                if (audio)
-                {
-                    float volume = clip.value("volume", 1.0f);
-                    audio->SetVolume(volume);
-                    RegisterAudio(name, audio);
-                }
+                LoadClip(clip.value("name", "noname"), clip.value("path", ""),
+                    clip.value("volume", 1.0f), clip.value("voices", 1));
             }
         }
+    }
+
+    bool AudioComponent::LoadClip(const std::string& name, const std::string& path, float volume, int voices)
+    {
+        Clip clip;
+        clip.volume = std::clamp(volume, 0.0f, 1.0f);
+        voices = std::clamp(voices, 1, 16);
+        for (int i = 0; i < voices; ++i)
+        {
+            if (auto audio = Audio::Load(path))
+            {
+                clip.voices.push_back(std::move(audio));
+            }
+            else
+            {
+                break; // file missing/undecodable - don't retry it N times
+            }
+        }
+        if (clip.voices.empty())
+        {
+            return false;
+        }
+        m_clips[name] = std::move(clip);
+        return true;
+    }
+
+    bool AudioComponent::HasClip(const std::string& name) const
+    {
+        return m_clips.find(name) != m_clips.end();
     }
 
     void AudioComponent::Update(float deltaTime)
@@ -28,28 +53,61 @@ namespace eng
         auto pos = m_owner->GetWorldPosition();
         for (auto& clip : m_clips)
         {
-            if (clip.second->IsPlaying())
+            for (auto& voice : clip.second.voices)
             {
-                clip.second->SetPosition(pos);
+                if (voice->IsPlaying())
+                {
+                    voice->SetPosition(pos);
+                }
             }
         }
     }
 
     void AudioComponent::RegisterAudio(const std::string& name, std::shared_ptr<Audio>& clip)
     {
-        m_clips[name] = clip;
+        if (!clip)
+        {
+            return;
+        }
+        Clip entry;
+        entry.volume = clip->GetVolume();
+        entry.voices.push_back(clip);
+        m_clips[name] = std::move(entry);
     }
 
     void AudioComponent::Play(const std::string& name, bool loop)
     {
         auto it = m_clips.find(name);
-        if (it != m_clips.end())
+        if (it == m_clips.end() || it->second.voices.empty())
         {
-            if (it->second)
+            return;
+        }
+        Clip& clip = it->second;
+
+        // Prefer an idle voice; otherwise steal the next one round-robin (the
+        // oldest still-sounding shot), so a burst never silences itself.
+        std::shared_ptr<Audio> voice;
+        for (std::size_t i = 0; i < clip.voices.size(); ++i)
+        {
+            auto& candidate = clip.voices[(clip.next + i) % clip.voices.size()];
+            if (!candidate->IsPlaying())
             {
-                it->second->Play(loop);
+                voice = candidate;
+                clip.next = (clip.next + i + 1) % clip.voices.size();
+                break;
             }
         }
+        if (!voice)
+        {
+            voice = clip.voices[clip.next];
+            clip.next = (clip.next + 1) % clip.voices.size();
+            voice->Stop();
+        }
+
+        const float effects = Engine::GetInstance().GetAudioManager().GetEffectsVolume();
+        voice->SetVolume(clip.volume * effects);
+        voice->SetPosition(m_owner ? m_owner->GetWorldPosition() : glm::vec3(0.0f));
+        voice->Play(loop);
     }
 
     void AudioComponent::Stop(const std::string& name)
@@ -57,9 +115,9 @@ namespace eng
         auto it = m_clips.find(name);
         if (it != m_clips.end())
         {
-            if (it->second)
+            for (auto& voice : it->second.voices)
             {
-                it->second->Stop();
+                voice->Stop();
             }
         }
     }
@@ -69,12 +127,9 @@ namespace eng
         auto it = m_clips.find(name);
         if (it != m_clips.end())
         {
-            if (it->second)
-            {
-                return it->second->IsPlaying();
-            }
+            return std::any_of(it->second.voices.begin(), it->second.voices.end(),
+                [](const std::shared_ptr<Audio>& v) { return v->IsPlaying(); });
         }
-
         return false;
     }
 }
