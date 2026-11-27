@@ -70,7 +70,10 @@ void JobSystem::WaitIdle() {
     while (m_outstanding != 0) {
         if (!TryRun()) {
             std::unique_lock<std::mutex> lock(m_state);
-            m_wake.wait_for(lock, std::chrono::milliseconds(1), [this] { return m_outstanding == 0 || m_ready != 0; });
+            // Every completion/submission notifies; no periodic timeout is
+            // needed. A predicate wait also avoids GCC 11's known TSan
+            // pthread_cond_clockwait interception issue (GCC PR101978).
+            m_wake.wait(lock, [this] { return m_outstanding == 0 || m_ready != 0; });
         }
     }
 }

@@ -17,7 +17,7 @@ included; locally verified results are distinguished from pending Linux proof.
 
 See [Project C implementation, experiments and limitations](docs/PROJECT_C.md).
 The Windows Release build passes six CTest suites, including the real editor
-workflow. The systems suite alone performs 15,214 checks. Recorded experiments
+workflow. The systems suite alone performs 15,314 checks. Recorded experiments
 use an Intel x64 machine with 16 logical processors and MSVC 19.44; these are
 workload-specific results, not universal FPS claims.
 

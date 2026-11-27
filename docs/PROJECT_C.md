@@ -179,3 +179,13 @@ itch.io account/page setup is outside the build script.
   deliberate milestone; this preview does not add multiplayer shooting.
 - Extend streaming beyond image previews and measure useful workloads before
   enabling worker physics by default.
+
+### Sanitizer follow-up
+
+A second GCC 11 TSan run flagged double-locking around the shared condition
+variable after the first run passed. Review found the pool used a timed idle wait
+although every relevant transition already notifies the condition variable. It
+now uses a predicate-only wait, eliminating polling and avoiding the documented
+[GCC pthread_cond_clockwait instrumentation issue (PR101978)](https://gcc.gnu.org/pipermail/gcc-bugs/2022-July/793323.html).
+No sanitizer warning is suppressed. CI repeats the concurrency suite ten times
+with stop-on-first-failure semantics to check the revised wait protocol.

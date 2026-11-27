@@ -30,6 +30,11 @@ static void Jobs() {
         for (int p = 0; p < 4; ++p) producers.emplace_back([&] { for (int n = 0; n < 500; ++n) jobs.Submit([&] { ++total; }); });
         for (auto& t : producers) t.join();
         jobs.WaitIdle(); CHECK(total == 4000);
+        for (int round = 0; round < 50; ++round) {
+            jobs.Submit([&] { ++total; });
+            jobs.WaitIdle();
+            CHECK(total == 4001 + round);
+        }
         auto missing = StreamAsset(jobs, "definitely-missing-systems-test.asset");
         Throws([&] { jobs.Wait(missing); });
         const auto file = std::filesystem::temp_directory_path() / ("gd-stream-" + std::to_string(std::random_device{}()) + ".bin");

@@ -8,7 +8,7 @@ results. No other-platform results are implied.
 ## Correctness
 
 - Full application: six CTest suites passed, including the real editor workflow.
-- Systems suite: 15,214 assertions across concurrency, spatial queries, navigation,
+- Systems suite: 15,314 assertions across concurrency, spatial queries, navigation,
   packet validation, prediction and socket delivery.
 - The editor workflow verifies background image read/decode/upload and A* target
   serialization in addition to the existing shooting, weapons, audio and editing

@@ -119,6 +119,9 @@ add_subdirectory(thirdparty/glew/build/cmake "${CMAKE_CURRENT_BINARY_DIR}/glew_b
 include_directories(thirdparty/glew/include)
 set_property(TARGET glew_s PROPERTY FOLDER GLEW)
 set_property(TARGET glew PROPERTY FOLDER GLEW)
+# Only glew_s is linked. Do not build the vendor's unused DLL target: its
+# /NODEFAULTLIB flags fail with newer MSVC optimizations that emit memset.
+set_target_properties(glew PROPERTIES EXCLUDE_FROM_ALL TRUE EXCLUDE_FROM_DEFAULT_BUILD TRUE)
 
 # Add GLM library
 add_subdirectory(thirdparty/glm-1.0.1/glm)

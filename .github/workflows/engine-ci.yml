@@ -58,6 +58,11 @@ jobs:
           TSAN_OPTIONS: halt_on_error=1
           ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
         run: ctest --test-dir build-sanitized --output-on-failure --timeout 90
+      - name: Repeat concurrency stress (stop on first failure)
+        if: matrix.sanitizer == 'thread'
+        env:
+          TSAN_OPTIONS: halt_on_error=1
+        run: ctest --test-dir build-sanitized -R '^systems_tests$' --repeat until-fail:10 --output-on-failure --timeout 90
       - uses: actions/upload-artifact@v4
         if: always()
         with:
